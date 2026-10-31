@@ -40,6 +40,8 @@ export default function MapView() {
     stands,
     selectedStand,
     setSelectedStandId,
+    handleSelectStand,
+    isStandPanelOpen,
     selectedRoute,
     setSelectedRouteId,
     standRoutes,
@@ -284,7 +286,7 @@ export default function MapView() {
     if (layers.stands && stands.length > 0) {
       stands.forEach((stand) => {
         if (!stand.coordinates) return;
-        const isSelected = stand.id === selectedStand?.id;
+        const isSelected = isStandPanelOpen && stand.id === selectedStand?.id;
 
         const standIcon = L.divIcon({
           className: 'custom-stand-marker-node',
@@ -311,14 +313,15 @@ export default function MapView() {
         const marker = L.marker(stand.coordinates, { icon: standIcon }).addTo(standGroup);
 
         marker.on('click', () => {
-          openStandPopup(stand.id);
-          setShowBottomToast(true);
+          handleSelectStand(stand.id);
         });
       });
     }
   }, [
     layers,
     selectedStand,
+    isStandPanelOpen,
+    handleSelectStand,
     selectedRoute,
     selectedRouteStops,
     standRoutes,
@@ -327,7 +330,6 @@ export default function MapView() {
     language,
     isOffline,
     tileError,
-    openStandPopup,
     setSelectedRouteId
   ]);
 
@@ -500,8 +502,8 @@ export default function MapView() {
         </div>
       </div>
 
-      {/* Floating Stand Information Popup (Opened on Stand Marker Click) */}
-      {standPopup.isOpen && standPopup.stand && (
+      {/* Floating Stand Information Popup (Only if left panel is closed) */}
+      {!isStandPanelOpen && standPopup.isOpen && standPopup.stand && (
         <div className="floating-stand-popup-card">
           {/* Header */}
           <div className="stand-popup-header">
@@ -638,8 +640,8 @@ export default function MapView() {
         </div>
       )}
 
-      {/* Floating Bottom Stand Badge (matching Image 1) */}
-      {showBottomToast && selectedStand && (
+      {/* Floating Bottom Stand Badge (Only if active) */}
+      {showBottomToast && selectedStand && isStandPanelOpen && (
         <div className="stand-bottom-toast">
           <div className="toast-auto-icon-circle">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

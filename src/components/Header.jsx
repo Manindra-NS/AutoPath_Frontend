@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTransit } from '../context/TransitContext';
-import { Map, Search, Car, Globe, SlidersHorizontal, User, Menu, X } from 'lucide-react';
+import { Map, Search, SlidersHorizontal, User } from 'lucide-react';
 
 export default function Header() {
   const {
@@ -9,18 +9,12 @@ export default function Header() {
     t,
     activeTab,
     setActiveTab,
-    setShowStandModal,
-    setShowWelcomeModal,
     setShowPreferencesModal
   } = useTransit();
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
-    if (tab === 'stands') {
-      setShowStandModal(true);
-    } else if (tab === 'welcome') {
-      setShowWelcomeModal(true);
-    } else if (tab === 'preferences') {
+    if (tab === 'preferences') {
       setShowPreferencesModal(true);
     }
   };
@@ -63,24 +57,6 @@ export default function Header() {
           >
             <Search size={15} />
             <span>{t.navSearch}</span>
-          </button>
-
-          <button
-            className={`nav-tab-btn ${activeTab === 'stands' ? 'active' : ''}`}
-            onClick={() => handleTabClick('stands')}
-            id="tab-auto-stands"
-          >
-            <Car size={15} />
-            <span>{t.navStands}</span>
-          </button>
-
-          <button
-            className={`nav-tab-btn ${activeTab === 'welcome' ? 'active' : ''}`}
-            onClick={() => handleTabClick('welcome')}
-            id="tab-welcome-lang"
-          >
-            <Globe size={15} />
-            <span>{t.navWelcome}</span>
           </button>
 
           <button
@@ -154,19 +130,11 @@ export default function Header() {
         </button>
 
         <button
-          className={`mobile-nav-item ${activeTab === 'stands' ? 'active' : ''}`}
-          onClick={() => handleTabClick('stands')}
+          className={`mobile-nav-item ${activeTab === 'preferences' ? 'active' : ''}`}
+          onClick={() => handleTabClick('preferences')}
         >
-          <Car size={18} />
-          <span>{t.navStands}</span>
-        </button>
-
-        <button
-          className={`mobile-nav-item ${activeTab === 'welcome' ? 'active' : ''}`}
-          onClick={() => handleTabClick('welcome')}
-        >
-          <Globe size={18} />
-          <span>{t.navWelcome}</span>
+          <SlidersHorizontal size={18} />
+          <span>{t.navPreferences}</span>
         </button>
       </nav>
     </>

@@ -29,7 +29,7 @@ function MainApp() {
           </>
         )}
 
-        {/* If Route Search mode (Image 2) */}
+        {/* If Route Search mode */}
         {activeTab === 'search' && (
           <>
             <RouteSearchPanel />
@@ -39,18 +39,8 @@ function MainApp() {
           </>
         )}
 
-        {/* If Auto Stands mode (Image 3) */}
-        {activeTab === 'stands' && (
-          <>
-            <InteractiveMapPanel />
-            <div style={{ flex: 1, position: 'relative', height: '100%' }}>
-              <MapView />
-            </div>
-          </>
-        )}
-
-        {/* If Welcome / Language or Preferences active as tabs */}
-        {(activeTab === 'welcome' || activeTab === 'preferences') && (
+        {/* If Preferences active as tab */}
+        {activeTab === 'preferences' && (
           <>
             <InteractiveMapPanel />
             <div style={{ flex: 1, position: 'relative', height: '100%' }}>

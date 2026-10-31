@@ -9,15 +9,16 @@ export function TransitProvider({ children }) {
     return localStorage.getItem('autopath_lang') || 'en';
   });
 
-  const [activeTab, setActiveTab] = useState('map'); // 'map' | 'search' | 'stands' | 'welcome' | 'preferences'
+  const [activeTab, setActiveTab] = useState('map'); // 'map' | 'search' | 'stands' | 'preferences'
   
   // Stands & Routes data loaded from service
   const [stands, setStands] = useState([]);
-  const [selectedStandId, setSelectedStandIdState] = useState('ruby-more');
-  const [selectedRouteId, setSelectedRouteIdState] = useState('ruby-gariahat');
+  const [selectedStandId, setSelectedStandIdState] = useState(null);
+  const [selectedRouteId, setSelectedRouteIdState] = useState(null);
   const [selectedRouteDetail, setSelectedRouteDetail] = useState(null);
   const [standRoutes, setStandRoutes] = useState([]);
   const [selectedRouteStops, setSelectedRouteStops] = useState([]);
+  const [isStandPanelOpen, setIsStandPanelOpen] = useState(false);
   
   // Search parameters & results
   const [searchFrom, setSearchFrom] = useState('Ruby More');
@@ -50,7 +51,7 @@ export function TransitProvider({ children }) {
 
   const [filterTag, setFilterTag] = useState('direct'); // 'direct' | 'frequent' | 'metro'
   const [showStandModal, setShowStandModal] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [hoveredStop, setHoveredStop] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -98,13 +99,26 @@ export function TransitProvider({ children }) {
 
   // 2. Load routes for selected stand
   const loadStandRoutes = useCallback(async (standId) => {
+    if (!standId) {
+      setStandRoutes([]);
+      return;
+    }
+    setIsLoadingRoutes(true);
+    setApiError(null);
     try {
       const res = await transitService.getRoutesByStand(standId);
       if (res.success && res.data) {
         setStandRoutes(res.data);
+      } else {
+        setStandRoutes([]);
+        if (res.error) setApiError(res.error);
       }
     } catch (err) {
       console.error('Failed to load stand routes:', err);
+      setStandRoutes([]);
+      setApiError(err.message || 'Failed to retrieve routes from backend database.');
+    } finally {
+      setIsLoadingRoutes(false);
     }
   }, []);
 
@@ -150,6 +164,9 @@ export function TransitProvider({ children }) {
   useEffect(() => {
     if (selectedRouteId) {
       loadRouteDetail(selectedRouteId);
+    } else {
+      setSelectedRouteDetail(null);
+      setSelectedRouteStops([]);
     }
   }, [selectedRouteId, loadRouteDetail]);
 
@@ -161,14 +178,10 @@ export function TransitProvider({ children }) {
       const res = await transitService.findRoutes(from, to, options);
       if (res.success && res.data) {
         setSearchResults(res.data);
-        if (res.data.length > 0) {
+        if (selectedRouteId && res.data.length > 0) {
           const matchExisting = res.data.find(r => r.id === selectedRouteId);
           if (matchExisting) {
-            // Keep selected route and refresh detail
             loadRouteDetail(matchExisting.id);
-          } else {
-            // Switch to first route
-            setSelectedRouteIdState(res.data[0].id);
           }
         }
       } else {
@@ -190,35 +203,64 @@ export function TransitProvider({ children }) {
   }, []); // Initial search
 
   // Currently selected stand and route objects
-  const selectedStand = stands.find(s => s.id === selectedStandId) || stands[0] || null;
+  const selectedStand = selectedStandId
+    ? (stands.find(s => s.id === selectedStandId) || null)
+    : null;
 
   // Selected route resolves to full detail from backend
-  const fallbackRoute = searchResults.find(r => r.id === selectedRouteId) || 
-                        standRoutes.find(r => r.id === selectedRouteId) || 
-                        searchResults[0] || null;
+  const fallbackRoute = selectedRouteId
+    ? (standRoutes.find(r => r.id === selectedRouteId) || searchResults.find(r => r.id === selectedRouteId) || null)
+    : null;
 
-  const selectedRoute = (selectedRouteDetail && selectedRouteDetail.id === selectedRouteId)
+  const selectedRoute = (selectedRouteId && selectedRouteDetail && selectedRouteDetail.id === selectedRouteId)
     ? selectedRouteDetail
     : fallbackRoute;
 
-  // Stand Selection Handler
-  const handleSelectStand = (standId) => {
+  // Stand Selection Handler (called when user clicks an auto stand marker on map)
+  const handleSelectStand = async (standId) => {
     setSelectedStandIdState(standId);
+    setIsStandPanelOpen(true);
+    setSelectedRouteIdState(null);
+    setSelectedRouteDetail(null);
+    setSelectedRouteStops([]);
+    
     const stand = stands.find(s => s.id === standId);
     if (stand) {
       setSearchFrom(stand.name);
     }
-    transitService.getRoutesByStand(standId).then(res => {
-      if (res.success && res.data && res.data.length > 0) {
+
+    setIsLoadingRoutes(true);
+    setApiError(null);
+    try {
+      const res = await transitService.getRoutesByStand(standId);
+      if (res.success && res.data) {
         setStandRoutes(res.data);
-        setSelectedRouteIdState(res.data[0].id);
+      } else {
+        setStandRoutes([]);
+        if (res.error) setApiError(res.error);
       }
-    });
+    } catch (err) {
+      setStandRoutes([]);
+      setApiError(err.message || 'Failed to load routes departing from this stand.');
+    } finally {
+      setIsLoadingRoutes(false);
+    }
+  };
+
+  // Close Stand Panel Handler (dismisses panel and returns to clean map view)
+  const closeStandPanel = () => {
+    setIsStandPanelOpen(false);
+    setSelectedStandIdState(null);
+    setSelectedRouteIdState(null);
+    setSelectedRouteDetail(null);
+    setSelectedRouteStops([]);
+    setStandRoutes([]);
   };
 
   // Route Selection Handler
   const handleSelectRoute = (routeId) => {
     setSelectedRouteIdState(routeId);
+    setIsStandPanelOpen(true);
     const route = searchResults.find(r => r.id === routeId) || standRoutes.find(r => r.id === routeId);
     if (route && route.originStandId) {
       setSelectedStandIdState(route.originStandId);
@@ -227,18 +269,7 @@ export function TransitProvider({ children }) {
 
   // Open Stand Information Popup (on clicking a stand marker)
   const openStandPopup = async (standId) => {
-    const stand = stands.find(s => s.id === standId);
-    if (!stand) return;
-
-    setSelectedStandIdState(standId);
-    const routesRes = await transitService.getRoutesByStand(standId);
-    const routes = routesRes.success ? routesRes.data : [];
-
-    setStandPopup({
-      isOpen: true,
-      stand,
-      routes
-    });
+    handleSelectStand(standId);
   };
 
   const closeStandPopup = () => {
@@ -271,11 +302,16 @@ export function TransitProvider({ children }) {
         stands,
         selectedStandId,
         setSelectedStandId: handleSelectStand,
+        handleSelectStand,
         selectedStand,
         selectedRouteId,
         setSelectedRouteId: handleSelectRoute,
         selectedRoute,
         standRoutes,
+        loadStandRoutes,
+        isStandPanelOpen,
+        setIsStandPanelOpen,
+        closeStandPanel,
         selectedRouteStops,
         searchFrom,
         setSearchFrom,

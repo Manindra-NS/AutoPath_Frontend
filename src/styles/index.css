@@ -256,6 +256,264 @@ input, select {
   border-radius: 10px;
 }
 
+/* Stand Hub Panel Card (Dynamic Left-Hand Panel on Stand Marker Click) */
+.stand-hub-panel-card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.stand-panel-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.stand-panel-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.live-dispatch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  background: #DCFCE7;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.stand-panel-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.stand-panel-close-btn:hover {
+  background: #FEE2E2;
+  color: #DC2626;
+  border-color: #FECACA;
+  transform: rotate(90deg);
+}
+
+.stand-panel-title-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stand-panel-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.stand-panel-bengali-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.stand-panel-tagline {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.stand-panel-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: #F8FAFC;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.stand-panel-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stand-meta-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stand-meta-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Stand Panel Error Banner */
+.stand-panel-error-banner {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.btn-retry-api {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #991B1B;
+  background: #FEE2E2;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #FECACA;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.btn-retry-api:hover {
+  background: #FCA5A5;
+}
+
+/* Departing Routes Section */
+.departing-routes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.departing-routes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.departing-routes-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.departing-routes-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.departing-routes-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: #E2E8F0;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.shared-fare-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: #F1F5F9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.departing-routes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hub-route-card.active-selected-route {
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 2px rgba(13, 92, 58, 0.25), var(--shadow-md);
+  background: #F0FDF4;
+}
+
+.btn-select-view-route.btn-route-selected {
+  background: #15803d;
+  color: #FFFFFF;
+}
+
+.routes-loading-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.routes-empty-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.routes-empty-card .empty-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.routes-empty-card .empty-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* Input Card matching Image 1 */
 .inputs-card {
   background: #FFFFFF;
@@ -2036,7 +2294,10 @@ input, select {
     left: 8px;
     right: 8px;
     width: auto;
-    max-height: 48vh;
+    max-height: 56vh;
+    z-index: 1200;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
+    border-radius: 16px;
   }
   .search-sidebar {
     width: 100%;

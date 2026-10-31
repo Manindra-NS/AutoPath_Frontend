@@ -1,135 +1,126 @@
 import React from 'react';
 import { useTransit } from '../context/TransitContext';
 import {
-  ArrowDownUp,
-  Navigation,
+  X,
+  MapPin,
   Clock,
+  Car,
+  ShieldCheck,
+  Navigation,
   Activity,
   Train,
   AlertCircle,
   RefreshCw,
-  Loader2
+  Loader2,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 
 export default function InteractiveMapPanel() {
   const {
     t,
     language,
-    searchFrom,
-    setSearchFrom,
-    searchTo,
-    setSearchTo,
-    executeSearch,
-    handleSwapStands,
-    filterTag,
-    setFilterTag,
+    isStandPanelOpen,
+    closeStandPanel,
+    selectedStand,
+    standRoutes,
+    loadStandRoutes,
     selectedRoute,
     setSelectedRouteId,
-    standRoutes,
     selectedRouteStops,
     isLoadingRoutes,
     apiError,
-    setHoveredStop,
-    hoveredStop
+    hoveredStop,
+    setHoveredStop
   } = useTransit();
 
-  // Find alternative routes from the same origin stand
-  const alternativeRoutes = standRoutes.filter(
-    (r) => r.id !== selectedRoute?.id
-  );
+  // If panel is not open or no stand is selected, do NOT render any panel
+  // Initial map view stays clean with all auto stand markers visible
+  if (!isStandPanelOpen || !selectedStand) {
+    return null;
+  }
 
   const stopsToRender = selectedRouteStops?.length > 0 ? selectedRouteStops : selectedRoute?.stops;
 
-  const handleInputKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      executeSearch(searchFrom, searchTo);
-    }
-  };
-
   return (
-    <aside className="map-sidebar-overlay" aria-label="Route Corridor Inspector">
-      {/* Inputs Card */}
-      <div className="inputs-card">
-        <div className="input-row-group">
-          {/* Starting Stand */}
-          <div className="stand-input-box">
-            <span className="icon-yellow-circle" />
-            <div className="input-text-area">
-              <span className="input-label-micro">{t.startingStand}</span>
-              <input
-                type="text"
-                className="input-value-text"
-                value={searchFrom}
-                onChange={(e) => setSearchFrom(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                placeholder="Enter starting stand..."
-              />
-            </div>
+    <aside className="map-sidebar-overlay" aria-label="Auto Stand Details & Departing Routes">
+      {/* 1. AUTO STAND INFORMATION HEADER CARD */}
+      <div className="stand-hub-panel-card">
+        {/* Top Badges & Close Button */}
+        <div className="stand-panel-top-row">
+          <div className="stand-panel-badges">
+            <span className="hub-tier-badge">{selectedStand.tier || 'AUTO STAND HUB'}</span>
+            <span className="hub-lines-badge">
+              {standRoutes.length || selectedStand.activeLinesCount || 0} Lines
+            </span>
+            <span className="live-dispatch-badge">
+              <span className="status-pulse-dot" />
+              Live Dispatch Active
+            </span>
           </div>
 
-          {/* Floating Swap Button */}
           <button
-            className="swap-btn-floating"
-            onClick={handleSwapStands}
-            title="Swap Origin and Destination"
-            aria-label="Swap Stands"
+            className="stand-panel-close-btn"
+            onClick={closeStandPanel}
+            title="Close Panel & Return to Map"
+            aria-label="Close Stand Details Panel"
           >
-            <ArrowDownUp size={16} />
+            <X size={18} />
           </button>
-
-          {/* Destination Stand */}
-          <div className="stand-input-box">
-            <span className="icon-green-target" />
-            <div className="input-text-area">
-              <span className="input-label-micro">{t.destinationStand}</span>
-              <input
-                type="text"
-                className="input-value-text"
-                value={searchTo}
-                onChange={(e) => setSearchTo(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                placeholder="Enter destination stand..."
-              />
-            </div>
-          </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="filter-pills-row">
-          <button
-            className={`filter-pill ${filterTag === 'direct' ? 'active' : ''}`}
-            onClick={() => setFilterTag('direct')}
-          >
-            {t.directCorridors}
-          </button>
-          <button
-            className={`filter-pill ${filterTag === 'frequent' ? 'active' : ''}`}
-            onClick={() => setFilterTag('frequent')}
-          >
-            {t.frequentInterval}
-          </button>
-          <button
-            className={`filter-pill ${filterTag === 'metro' ? 'active' : ''}`}
-            onClick={() => setFilterTag('metro')}
-          >
-            {t.metroTransfer}
-          </button>
+        {/* Stand Name in English & Bengali */}
+        <div className="stand-panel-title-area">
+          <h2 className="stand-panel-title">
+            {selectedStand.fullName || selectedStand.name}
+            {selectedStand.bengaliName && (
+              <span className="stand-panel-bengali-name">
+                {' '}({selectedStand.bengaliName} অটো স্ট্যান্ড)
+              </span>
+            )}
+          </h2>
+          <p className="stand-panel-tagline">
+            {language === 'bn' && selectedStand.taglineBengali
+              ? selectedStand.taglineBengali
+              : (selectedStand.tagline || selectedStand.coordsDescription || 'Major Kolkata Auto-Rickshaw Corridor Hub')}
+          </p>
+        </div>
+
+        {/* Stand Metadata Grid */}
+        <div className="stand-panel-meta-grid">
+          <div className="stand-panel-meta-item">
+            <span className="stand-meta-label">
+              <MapPin size={11} /> {t.coordinates || 'COORDINATES'}
+            </span>
+            <span className="stand-meta-value" title={selectedStand.coordsDescription}>
+              {selectedStand.coordsDescription || 
+                (selectedStand.coordinates ? `${selectedStand.coordinates[0].toFixed(4)}°N, ${selectedStand.coordinates[1].toFixed(4)}°E` : 'Kolkata, WB')}
+            </span>
+          </div>
+          <div className="stand-panel-meta-item">
+            <span className="stand-meta-label">
+              <Clock size={11} /> {t.serviceSpan || 'OPERATING HOURS'}
+            </span>
+            <span className="stand-meta-value">{selectedStand.serviceSpan || '06:00 - 23:30'}</span>
+          </div>
+          <div className="stand-panel-meta-item">
+            <span className="stand-meta-label">
+              <Car size={11} /> {t.standFormat || 'STAND TYPE'}
+            </span>
+            <span className="stand-meta-value">{selectedStand.standFormat || 'Dedicated Bay Hub'}</span>
+          </div>
+          <div className="stand-panel-meta-item">
+            <span className="stand-meta-label">
+              <ShieldCheck size={11} /> {t.queueSystem || 'QUEUE SYSTEM'}
+            </span>
+            <span className="stand-meta-value">{selectedStand.queueSystem || 'Union Regulated Queue'}</span>
+          </div>
         </div>
       </div>
 
-      {/* Backend API Error Banner (Honest failure reporting, no fabricated results) */}
+      {/* 2. BACKEND API ERROR NOTIFICATION BANNER */}
       {apiError && (
-        <div
-          style={{
-            background: '#FEF2F2',
-            border: '1px solid #FECACA',
-            borderRadius: '14px',
-            padding: '14px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px'
-          }}
-        >
+        <div className="stand-panel-error-banner">
           <AlertCircle size={18} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '12px', fontWeight: 800, color: '#991B1B' }}>
@@ -139,101 +130,162 @@ export default function InteractiveMapPanel() {
               {apiError}
             </div>
             <button
-              onClick={() => executeSearch(searchFrom, searchTo)}
-              style={{
-                marginTop: '8px',
-                fontSize: '11px',
-                fontWeight: 700,
-                color: '#991B1B',
-                background: '#FEE2E2',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              onClick={() => loadStandRoutes(selectedStand.id)}
+              className="btn-retry-api"
             >
               <RefreshCw size={12} />
-              Retry API Request
+              Retry Fetching Routes
             </button>
           </div>
         </div>
       )}
 
-      {/* Loading Skeleton */}
-      {isLoadingRoutes && !selectedRoute && (
-        <div
-          className="route-details-card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '40px',
-            color: 'var(--text-muted)'
-          }}
-        >
-          <Loader2 size={24} className="animate-spin" color="var(--brand-green)" />
-          <span style={{ marginLeft: '10px', fontSize: '13px', fontWeight: 600 }}>
-            Loading route corridor details...
+      {/* 3. AVAILABLE AUTO ROUTES DEPARTING FROM THIS STAND */}
+      <div className="departing-routes-section">
+        <div className="departing-routes-header">
+          <div className="departing-routes-title-group">
+            <h3 className="departing-routes-title">
+              Available Auto Routes Departing From Stand
+            </h3>
+            <span className="departing-routes-count">
+              {standRoutes.length} Corridors
+            </span>
+          </div>
+          <span className="shared-fare-tag">
+            Standard Shared Fares
           </span>
         </div>
-      )}
 
-      {/* Selected Route Details Card */}
+        {/* Loading State */}
+        {isLoadingRoutes && (
+          <div className="routes-loading-card">
+            <Loader2 size={24} className="animate-spin" color="var(--brand-green)" />
+            <span>Fetching routes departing from {selectedStand.name} from backend...</span>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoadingRoutes && (!standRoutes || standRoutes.length === 0) && !apiError && (
+          <div className="routes-empty-card">
+            <Car size={32} color="#94A3B8" />
+            <div className="empty-title">No Routes Registered</div>
+            <p className="empty-desc">
+              No auto routes currently registered from this stand.
+            </p>
+          </div>
+        )}
+
+        {/* Route Cards */}
+        {!isLoadingRoutes && standRoutes && standRoutes.length > 0 && (
+          <div className="departing-routes-list">
+            {standRoutes.map((route) => {
+              const isSelected = selectedRoute?.id === route.id;
+              const originName = route.originStandName || selectedStand.name;
+              const destName = route.destinationStandName || 
+                (route.name ? (route.name.includes('⇄') ? route.name.split('⇄')[1]?.trim() : route.name.split('→')[1]?.trim() || route.name) : 'Destination');
+
+              return (
+                <div
+                  key={route.id}
+                  className={`hub-route-card ${isSelected ? 'active-selected-route' : ''}`}
+                >
+                  {/* Route Header */}
+                  <div className="hub-route-header">
+                    <div className="hub-route-left">
+                      <span className="route-index-badge">{route.code || 'ROUTE'}</span>
+                      <div>
+                        <div className="hub-route-title">
+                          {originName} ⇄ {destName}
+                        </div>
+                        <div className="hub-route-bengali">
+                          {language === 'bn' 
+                            ? (route.bengaliSubtitle || route.bengaliName || route.name) 
+                            : (route.bengaliSubtitle || route.subtitle || 'Kolkata Shared Auto Corridor')}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="hub-freq-badge">{route.queueFreq || '3-5 min'}</span>
+                  </div>
+
+                  {/* Route Meta Information */}
+                  <div className="hub-route-meta">
+                    <span title="Route Distance">
+                      <Navigation size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                      {route.distance || '–'}
+                    </span>
+                    <span>•</span>
+                    <span title="Estimated Travel Time">
+                      <Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                      {route.estTravel || (route.estTravelMin ? `Est. ${route.estTravelMin} mins` : '–')}
+                    </span>
+                    <span>•</span>
+                    <span className="meta-fixed-fare" title="Fixed Standard Fare">
+                      {route.fareFixed || route.fareRange || '₹15 - ₹20'}
+                    </span>
+                  </div>
+
+                  {/* Intermediate Stops or Corridor Sequence */}
+                  {route.stops && route.stops.length > 0 && (
+                    <div className="corridor-sequence-box">
+                      <div className="corridor-sequence-title">
+                        Corridor Sequence ({route.stops.length} Stops)
+                      </div>
+                      <div className="sequence-tags-chain">
+                        {route.stops.map((stop, sIdx) => (
+                          <React.Fragment key={stop.id || sIdx}>
+                            <span className="sequence-stop-pill" title={stop.name}>
+                              {language === 'bn'
+                                ? (stop.bengaliName || stop.name)
+                                : (stop.name?.split('(')[0]?.trim() || stop.name)}
+                            </span>
+                            {sIdx < route.stops.length - 1 && (
+                              <span style={{ color: '#94A3B8', fontWeight: 800 }}>&gt;</span>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Footer: Category & Select & View Route Button */}
+                  <div className="hub-card-footer">
+                    <span className="hub-card-category">
+                      {route.category || 'Direct Corridor'}
+                    </span>
+                    <button
+                      className={`btn-select-view-route ${isSelected ? 'btn-route-selected' : ''}`}
+                      onClick={() => setSelectedRouteId(route.id)}
+                      title={isSelected ? 'Route is currently drawn on map' : 'Click to draw and inspect route on map'}
+                    >
+                      {isSelected ? (
+                        <>
+                          <Check size={14} />
+                          <span>Viewing on Map</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Select &amp; View Route</span>
+                          <ChevronRight size={14} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 4. SELECTED ROUTE PROGRESSION TIMELINE (When a route is actively selected) */}
       {selectedRoute && (
-        <div className="route-details-card">
-          {/* Header & Badges */}
-          <div className="route-card-header">
-            <div className="route-header-info">
-              <div className="route-tag-row">
-                <span className="route-code-badge">{selectedRoute.code || 'ROUTE'}</span>
-                <span className="active-queue-badge">
-                  <span className="status-pulse-dot" />
-                  {t.activeQueueNow}
-                </span>
-              </div>
-              <h2 className="route-title">
-                {language === 'bn' ? selectedRoute.bengaliName : selectedRoute.name}
-              </h2>
-              <p className="route-subtitle">
-                {language === 'bn' ? selectedRoute.bengaliSubtitle : selectedRoute.subtitle}
-              </p>
-            </div>
-
-            <div className="fare-block">
-              <div className="fare-amount">
-                {selectedRoute.fareRange || selectedRoute.fareFixed}
-              </div>
-              <div className="fare-note">{selectedRoute.fareType || 'Per Seat Share'}</div>
-            </div>
-          </div>
-
-          {/* 3 Metric Stat Boxes */}
-          <div className="stats-grid-3">
-            <div className="stat-box">
-              <Navigation size={16} className="stat-icon" />
-              <div className="stat-val">{selectedRoute.distance}</div>
-              <div className="stat-lbl">{t.distance}</div>
-            </div>
-            <div className="stat-box">
-              <Clock size={16} className="stat-icon" />
-              <div className="stat-val">{selectedRoute.estTravel}</div>
-              <div className="stat-lbl">{t.estTravel}</div>
-            </div>
-            <div className="stat-box">
-              <Activity size={16} className="stat-icon" />
-              <div className="stat-val">{selectedRoute.queueFreq}</div>
-              <div className="stat-lbl">{t.queueFreq}</div>
-            </div>
-          </div>
-
-          {/* Stoppage Progression */}
+        <div className="route-details-card" style={{ marginTop: '4px' }}>
           <div className="timeline-section">
             <div className="timeline-section-header">
               <span className="timeline-title">
-                {t.stoppageProgression} ({stopsToRender ? stopsToRender.length : 0} STOPS)
+                {t.stoppageProgression || 'Stoppage Progression'} ({stopsToRender ? stopsToRender.length : 0} STOPS)
               </span>
-              <span className="live-corridor-link">{t.liveCorridor}</span>
+              <span className="live-corridor-link">{t.liveCorridor || 'Live Corridor'}</span>
             </div>
 
             <div className="timeline-list">
@@ -258,7 +310,7 @@ export default function InteractiveMapPanel() {
                       />
                       <div className="timeline-content">
                         <div className="timeline-stop-name">
-                          {language === 'bn' ? stop.bengaliName : stop.name}
+                          {language === 'bn' ? (stop.bengaliName || stop.name) : stop.name}
                         </div>
                         <div className="timeline-badges-row">
                           {stop.badge && (
@@ -278,30 +330,6 @@ export default function InteractiveMapPanel() {
                 })}
             </div>
           </div>
-
-          {/* Other Routes From Origin Stand */}
-          {alternativeRoutes.length > 0 && (
-            <div className="other-routes-box">
-              <div className="other-routes-header">
-                <span className="other-routes-title">
-                  {t.otherRoutesFrom} {selectedRoute.name.split('⇄')[0].trim()}
-                </span>
-                <span className="other-routes-count">{alternativeRoutes.length} Alternatives</span>
-              </div>
-
-              {alternativeRoutes.map((alt) => (
-                <div
-                  key={alt.id}
-                  className="other-route-item"
-                  onClick={() => setSelectedRouteId(alt.id)}
-                  title="Click to highlight route on map"
-                >
-                  <span>{language === 'bn' ? alt.bengaliName : alt.name}</span>
-                  <span className="other-route-fare">{alt.fareRange || alt.fareFixed}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </aside>
