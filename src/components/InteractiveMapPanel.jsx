@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTransit } from '../context/TransitContext';
+import { formatRouteTitle } from '../services/routeNormalizer';
 import {
   X,
   MapPin,
@@ -180,9 +181,7 @@ export default function InteractiveMapPanel() {
           <div className="departing-routes-list">
             {standRoutes.map((route) => {
               const isSelected = selectedRoute?.id === route.id;
-              const originName = route.originStandName || selectedStand.name;
-              const destName = route.destinationStandName || 
-                (route.name ? (route.name.includes('⇄') ? route.name.split('⇄')[1]?.trim() : route.name.split('→')[1]?.trim() || route.name) : 'Destination');
+              const routeTitle = formatRouteTitle(route, selectedStand.name);
 
               return (
                 <div
@@ -195,7 +194,7 @@ export default function InteractiveMapPanel() {
                       <span className="route-index-badge">{route.code || 'ROUTE'}</span>
                       <div>
                         <div className="hub-route-title">
-                          {originName} ⇄ {destName}
+                          {routeTitle}
                         </div>
                         <div className="hub-route-bengali">
                           {language === 'bn' 

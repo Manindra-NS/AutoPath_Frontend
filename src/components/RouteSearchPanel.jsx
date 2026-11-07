@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTransit } from '../context/TransitContext';
-import { popularStandSuggestions } from '../data/searchSuggestions';
 import {
   Search,
   ArrowDownUp,
@@ -9,13 +8,15 @@ import {
   X,
   Compass,
   AlertTriangle,
-  WifiOff,
-  Navigation,
-  Train,
-  Building,
   Loader2,
   RefreshCw
 } from 'lucide-react';
+
+/**
+ * Debounce delay in milliseconds for autocomplete API requests.
+ * Prevents sending a request on every keystroke.
+ */
+const AUTOCOMPLETE_DEBOUNCE_MS = 300;
 
 export default function RouteSearchPanel() {
   const {
@@ -26,36 +27,137 @@ export default function RouteSearchPanel() {
     setSearchTo,
     handleSwapStands,
     searchResults,
+    hasSearched,
     executeSearch,
+    searchLocations,
     isLoadingRoutes,
     apiError,
-    systemState,
-    setSystemState,
     setSelectedRouteId,
     setActiveTab,
     setShowStandModal
   } = useTransit();
 
   const [fareModalOpen, setFareModalOpen] = useState(false);
+  const [activeAutocomplete, setActiveAutocomplete] = useState(null); // 'from' | 'to' | null
 
-  // Filter suggestions based on searchTo
-  const suggestions = popularStandSuggestions.filter((item) => {
-    if (!searchTo) return true;
-    const q = searchTo.toLowerCase();
-    return (
-      item.name.toLowerCase().includes(q) ||
-      item.bengaliName.includes(q) ||
-      item.keywords?.some((k) => k.toLowerCase().includes(q))
-    );
-  });
+  // Autocomplete state for each field
+  const [fromSuggestions, setFromSuggestions] = useState([]);
+  const [toSuggestions, setToSuggestions] = useState([]);
+  const [isLoadingFromSuggestions, setIsLoadingFromSuggestions] = useState(false);
+  const [isLoadingToSuggestions, setIsLoadingToSuggestions] = useState(false);
+  const [fromNoResults, setFromNoResults] = useState(false);
+  const [toNoResults, setToNoResults] = useState(false);
 
-  const handleSelectSuggestion = (stand) => {
-    setSearchTo(stand.name);
-    executeSearch(searchFrom, stand.name);
+  // Refs for debounce timers (so we can cancel on unmount or new keystroke)
+  const fromDebounceRef = useRef(null);
+  const toDebounceRef = useRef(null);
+
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (fromDebounceRef.current) clearTimeout(fromDebounceRef.current);
+      if (toDebounceRef.current) clearTimeout(toDebounceRef.current);
+    };
+  }, []);
+
+  // Close autocomplete dropdown on click outside or escape key
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      if (!e.target.closest('.search-field-row')) {
+        setActiveAutocomplete(null);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setActiveAutocomplete(null);
+    };
+    window.addEventListener('mousedown', handleGlobalClick);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('mousedown', handleGlobalClick);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  /**
+   * Fetches location suggestions from the backend API with debouncing.
+   * @param {'from' | 'to'} field - Which input field triggered the search
+   * @param {string} query - The user's current input text
+   */
+  const fetchSuggestions = useCallback((field, query) => {
+    const debounceRef = field === 'from' ? fromDebounceRef : toDebounceRef;
+    const setLoading = field === 'from' ? setIsLoadingFromSuggestions : setIsLoadingToSuggestions;
+    const setSuggestions = field === 'from' ? setFromSuggestions : setToSuggestions;
+    const setNoResults = field === 'from' ? setFromNoResults : setToNoResults;
+
+    // Clear any pending debounce
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = query.trim();
+
+    // If input is empty, fetch default suggestions (popular stands)
+    if (!trimmed) {
+      setLoading(true);
+      setNoResults(false);
+      debounceRef.current = setTimeout(async () => {
+        const res = await searchLocations('');
+        if (res.success) {
+          setSuggestions(res.data.slice(0, 6));
+          setNoResults(res.data.length === 0);
+        } else {
+          setSuggestions([]);
+          setNoResults(false);
+        }
+        setLoading(false);
+      }, 100);
+      return;
+    }
+
+    // Debounced fetch for non-empty query
+    setLoading(true);
+    setNoResults(false);
+    debounceRef.current = setTimeout(async () => {
+      const res = await searchLocations(trimmed);
+      if (res.success) {
+        setSuggestions(res.data.slice(0, 8));
+        setNoResults(res.data.length === 0);
+      } else {
+        setSuggestions([]);
+        setNoResults(false);
+      }
+      setLoading(false);
+    }, AUTOCOMPLETE_DEBOUNCE_MS);
+  }, [searchLocations]);
+
+  // Trigger autocomplete fetch when input value changes and field is active
+  useEffect(() => {
+    if (activeAutocomplete === 'from') {
+      fetchSuggestions('from', searchFrom);
+    }
+  }, [searchFrom, activeAutocomplete, fetchSuggestions]);
+
+  useEffect(() => {
+    if (activeAutocomplete === 'to') {
+      fetchSuggestions('to', searchTo);
+    }
+  }, [searchTo, activeAutocomplete, fetchSuggestions]);
+
+  // When a field is focused, trigger initial fetch
+  const handleFieldFocus = (field) => {
+    setActiveAutocomplete(field);
+    fetchSuggestions(field, field === 'from' ? searchFrom : searchTo);
+  };
+
+  const handleSelectSuggestion = (field, location) => {
+    if (field === 'from') {
+      setSearchFrom(location.name);
+    } else {
+      setSearchTo(location.name);
+    }
+    setActiveAutocomplete(null);
   };
 
   const handleFindRoutesClick = () => {
-    setSystemState('A');
+    setActiveAutocomplete(null);
     executeSearch(searchFrom, searchTo);
   };
 
@@ -74,9 +176,128 @@ export default function RouteSearchPanel() {
     setShowStandModal(true);
   };
 
+  /**
+   * Renders the autocomplete dropdown panel for a given field.
+   */
+  const renderAutocompleteDropdown = (field) => {
+    const isActive = activeAutocomplete === field;
+    if (!isActive) return null;
+
+    const suggestions = field === 'from' ? fromSuggestions : toSuggestions;
+    const isLoading = field === 'from' ? isLoadingFromSuggestions : isLoadingToSuggestions;
+    const noResults = field === 'from' ? fromNoResults : toNoResults;
+    const queryValue = field === 'from' ? searchFrom : searchTo;
+
+    // Don't show dropdown if nothing to display
+    if (!isLoading && suggestions.length === 0 && !noResults) return null;
+
+    return (
+      <div
+        className="suggestions-panel"
+        style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 60,
+          marginTop: '4px',
+          maxHeight: '240px',
+          overflowY: 'auto',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        {/* Loading indicator */}
+        {isLoading && (
+          <div
+            style={{
+              padding: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              color: 'var(--text-muted)',
+              fontSize: '12px'
+            }}
+          >
+            <Loader2 size={14} className="animate-spin" />
+            <span>Searching locations...</span>
+          </div>
+        )}
+
+        {/* No results message */}
+        {!isLoading && noResults && (
+          <div
+            style={{
+              padding: '14px 12px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '12px'
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: '2px', color: 'var(--text-secondary)' }}>
+              No matching locations found
+            </div>
+            <div>
+              No auto-route stops match "{queryValue}". Try a different name.
+            </div>
+          </div>
+        )}
+
+        {/* Suggestions list */}
+        {!isLoading && suggestions.length > 0 && (
+          <div className="suggestions-list">
+            {suggestions.map((loc, idx) => (
+              <div
+                key={loc.id || `${loc.name}-${idx}`}
+                className="suggestion-item"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelectSuggestion(field, loc);
+                }}
+              >
+                <div className="suggestion-left">
+                  <div className="suggestion-icon-wrap">
+                    <MapPin size={15} />
+                  </div>
+                  <div className="suggestion-titles">
+                    <div className="suggestion-name-row">
+                      <span className="suggestion-name">{loc.name}</span>
+                      {loc.isStand && (
+                        <span className="suggestion-tag">Stand</span>
+                      )}
+                      {loc.type === 'stop' && !loc.isStand && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            background: '#EFF6FF',
+                            color: '#1D4ED8',
+                            padding: '1px 5px',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          Route Stop
+                        </span>
+                      )}
+                    </div>
+                    <span className="suggestion-desc">
+                      {loc.bengaliName ? `${loc.bengaliName}` : ''}
+                      {loc.bengaliName && loc.description ? ' • ' : ''}
+                      {loc.description || ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside className="search-sidebar" aria-label="Route Search and Planner">
-      {/* Top Banner */}
+      {/* 1. Top Banner: Route Planner heading & location information */}
       <div className="kma-certified-banner">
         <span className="kma-badge">
           <CheckCircle2 size={12} />
@@ -85,10 +306,10 @@ export default function RouteSearchPanel() {
         <span className="kma-zone">{t.suburbanZone}</span>
       </div>
 
-      {/* From / To Search Input Box */}
+      {/* 2. From / To Search Input Box */}
       <div className="search-inputs-box">
         {/* From Field */}
-        <div className="search-field-row">
+        <div className="search-field-row" style={{ position: 'relative' }}>
           <div className="search-field-content">
             <span className="search-field-label">From (উৎপত্তিস্থল)</span>
             <input
@@ -96,14 +317,41 @@ export default function RouteSearchPanel() {
               className="search-field-input"
               value={searchFrom}
               onChange={(e) => setSearchFrom(e.target.value)}
+              onFocus={() => handleFieldFocus('from')}
               onKeyDown={handleInputKeyDown}
-              placeholder="Origin stand..."
+              placeholder="Type your starting location"
+              autoComplete="off"
             />
           </div>
-          <span className="gps-located-badge" title="Location verified via GPS">
-            <MapPin size={10} />
-            GPS Located
-          </span>
+          {searchFrom ? (
+            <button
+              onClick={() => {
+                setSearchFrom('');
+                setActiveAutocomplete(null);
+              }}
+              style={{
+                color: '#94A3B8',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+              title="Clear starting location"
+              aria-label="Clear starting location"
+            >
+              <X size={16} />
+            </button>
+          ) : (
+            <span className="gps-located-badge" title="Location verified via GPS">
+              <MapPin size={10} />
+              GPS Located
+            </span>
+          )}
+
+          {/* Autocomplete floating dropdown for From field */}
+          {renderAutocompleteDropdown('from')}
         </div>
 
         {/* Swap Floating Button */}
@@ -117,7 +365,7 @@ export default function RouteSearchPanel() {
         </button>
 
         {/* To Field */}
-        <div className="search-field-row">
+        <div className="search-field-row" style={{ position: 'relative' }}>
           <div className="search-field-content">
             <span className="search-field-label">To (গন্তব্যস্থল)</span>
             <input
@@ -125,25 +373,39 @@ export default function RouteSearchPanel() {
               className="search-field-input"
               value={searchTo}
               onChange={(e) => setSearchTo(e.target.value)}
+              onFocus={() => handleFieldFocus('to')}
               onKeyDown={handleInputKeyDown}
-              placeholder="Destination stand..."
+              placeholder="Where do you want to go?"
+              autoComplete="off"
             />
           </div>
-          {searchTo && (
+          {searchTo ? (
             <button
               onClick={() => {
                 setSearchTo('');
-                executeSearch(searchFrom, '');
+                setActiveAutocomplete(null);
               }}
-              style={{ color: '#94A3B8' }}
+              style={{
+                color: '#94A3B8',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
               title="Clear destination"
+              aria-label="Clear destination"
             >
               <X size={16} />
             </button>
-          )}
+          ) : null}
+
+          {/* Autocomplete floating dropdown for To field */}
+          {renderAutocompleteDropdown('to')}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Find Routes & Fare Estimator */}
         <div className="search-actions-row">
           <button
             className="btn-find-routes"
@@ -237,150 +499,41 @@ export default function RouteSearchPanel() {
         </div>
       )}
 
-      {/* Recognized Stands Dropdown / Suggestions */}
-      {(systemState === 'C' || (!searchTo || searchTo.toLowerCase().includes('gar'))) && (
-        <div className="suggestions-panel">
-          <div className="suggestions-header">
-            <span>
-              {t.recognizedStands} "{searchTo || 'GARIA...'}"
-            </span>
-            <span>{t.autoHubNetwork}</span>
-          </div>
+      {/* 3. Route Results Section (Directly below search form) */}
 
-          <div className="suggestions-list">
-            {suggestions.slice(0, 4).map((stand) => (
-              <div
-                key={stand.id}
-                className="suggestion-item"
-                onClick={() => handleSelectSuggestion(stand)}
-              >
-                <div className="suggestion-left">
-                  <div className="suggestion-icon-wrap">
-                    {stand.iconType === 'tram' ? (
-                      <Train size={16} />
-                    ) : stand.iconType === 'metro' ? (
-                      <Building size={16} />
-                    ) : (
-                      <Navigation size={16} />
-                    )}
-                  </div>
-                  <div className="suggestion-titles">
-                    <div className="suggestion-name-row">
-                      <span className="suggestion-name">{stand.name}</span>
-                      {stand.tag && <span className="suggestion-tag">{stand.tag}</span>}
-                    </div>
-                    <span className="suggestion-desc">{stand.description}</span>
-                  </div>
-                </div>
-                <div className="suggestion-right">
-                  <div className="suggestion-dist">{stand.distance}</div>
-                  <div className="suggestion-routes-count">{stand.routesCount}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* System State Switcher (Screen 7 Explorations) */}
-      <div className="state-switcher-box">
-        <div className="state-switcher-title">
-          <span>{t.systemStateSwitcher}</span>
-          <span style={{ color: '#0D5C3A' }}>{t.interactivePreviewMode}</span>
-        </div>
-        <div className="state-buttons-row">
-          <button
-            className={`state-btn ${systemState === 'A' ? 'active' : ''}`}
-            onClick={() => setSystemState('A')}
-            title="Active 3 Matching Routes"
-          >
-            {t.stateActive}
-          </button>
-          <button
-            className={`state-btn ${systemState === 'B' ? 'active' : ''}`}
-            onClick={() => setSystemState('B')}
-            title="Empty state: No direct route"
-          >
-            {t.stateNoDirect}
-          </button>
-          <button
-            className={`state-btn ${systemState === 'C' ? 'active' : ''}`}
-            onClick={() => setSystemState('C')}
-            title="Autocomplete suggestions"
-          >
-            {t.stateAutocomplete}
-          </button>
-          <button
-            className={`state-btn ${systemState === 'D' ? 'active' : ''}`}
-            onClick={() => setSystemState('D')}
-            title="GPS Location notice"
-          >
-            {t.stateNotice}
-          </button>
-          <button
-            className={`state-btn ${systemState === 'E' ? 'active' : ''}`}
-            onClick={() => setSystemState('E')}
-            title="Offline cached fallback"
-          >
-            {t.stateOffline}
-          </button>
-        </div>
-      </div>
-
-      {/* State D: Location Notice */}
-      {systemState === 'D' && (
+      {/* Loading state indicator */}
+      {isLoadingRoutes && (
         <div
           style={{
-            background: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            borderRadius: '12px',
-            padding: '14px',
+            padding: '36px 20px',
+            textAlign: 'center',
+            color: 'var(--text-muted)',
             display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-start'
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px'
           }}
         >
-          <Compass size={20} color="#2563EB" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '13px', color: '#1E40AF' }}>
-              GPS Location Calibrated (EM Bypass Zone)
-            </div>
-            <p style={{ fontSize: '12px', color: '#3B82F6', marginTop: '2px' }}>
-              Your current device location is at <strong>Ruby More Junction</strong> (±6m accuracy).
-              Found 4 registered auto bays within 400m radius.
-            </p>
-          </div>
+          <Loader2 size={26} className="animate-spin" color="var(--brand-green)" />
+          <span style={{ fontSize: '13px', fontWeight: 600 }}>Querying Kolkata transit corridors...</span>
         </div>
       )}
 
-      {/* State E: Offline Cached Notice */}
-      {systemState === 'E' && (
-        <div
-          style={{
-            background: '#FFFBEB',
-            border: '1px solid #FDE68A',
-            borderRadius: '12px',
-            padding: '14px',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-start'
-          }}
-        >
-          <WifiOff size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '13px', color: '#92400E' }}>
-              Offline Mode Active (Offline Cached Corridors)
-            </div>
-            <p style={{ fontSize: '12px', color: '#B45309', marginTop: '2px' }}>
-              {t.offlineNotice} Showing pre-loaded corridor guides for Ruby More, Gariahat, Jadavpur
-              8B, and Garia Metro.
-            </p>
+      {/* State 1: When no route has been searched yet */}
+      {!hasSearched && !isLoadingRoutes && (
+        <div className="routes-empty-card" style={{ padding: '36px 20px', margin: '4px 0' }}>
+          <Compass size={36} color="#94A3B8" />
+          <div className="empty-title" style={{ fontSize: '14px', marginTop: '6px' }}>
+            Plan Your Auto Journey
           </div>
+          <p className="empty-desc" style={{ maxWidth: '280px', marginTop: '4px', lineHeight: 1.5 }}>
+            Enter your starting location and destination above, then click <strong>Find Routes</strong> to explore verified Kolkata shared auto corridors.
+          </p>
         </div>
       )}
 
-      {/* State B or Empty Results: Empty / No Direct Route State */}
-      {(systemState === 'B' || (searchResults.length === 0 && !isLoadingRoutes && !apiError)) && (
+      {/* State 2: When no direct auto corridor is found */}
+      {hasSearched && !isLoadingRoutes && searchResults.length === 0 && !apiError && (
         <div
           style={{
             background: '#FFFFFF',
@@ -391,7 +544,8 @@ export default function RouteSearchPanel() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '12px'
+            gap: '12px',
+            margin: '4px 0'
           }}
         >
           <div
@@ -410,10 +564,10 @@ export default function RouteSearchPanel() {
           </div>
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {t.noRoutesFound}
+              No direct auto corridors found
             </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              {t.suggestAlternative}
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+              {t.suggestAlternative || 'No direct auto corridor operates on this exact path. Try searching with a major nearby junction or check connecting corridors.'}
             </p>
           </div>
           <button
@@ -421,43 +575,26 @@ export default function RouteSearchPanel() {
             style={{ width: 'auto', padding: '8px 20px' }}
             onClick={() => {
               setSearchTo('Gariahat');
-              setSystemState('A');
-              executeSearch('Ruby More', 'Gariahat');
+              executeSearch(searchFrom || 'Ruby More', 'Gariahat');
             }}
           >
-            Show Connecting Corridors via Jadavpur 8B
+            Explore Major Corridors via Nearby Hubs
           </button>
         </div>
       )}
 
-      {/* Loading state indicator */}
-      {isLoadingRoutes && (
-        <div
-          style={{
-            padding: '30px',
-            textAlign: 'center',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <Loader2 size={26} className="animate-spin" color="var(--brand-green)" />
-          <span style={{ fontSize: '13px', fontWeight: 600 }}>Querying Kolkata transit corridors...</span>
-        </div>
-      )}
-
-      {/* State A / Normal Results Mode: Found Matching Auto Corridors */}
-      {systemState !== 'B' && searchResults.length > 0 && !isLoadingRoutes && (
+      {/* State 3: When routes are found */}
+      {hasSearched && !isLoadingRoutes && searchResults.length > 0 && (
         <>
           <div className="results-header-row">
             <div className="results-count-title">
               <span style={{ color: '#22c55e' }}>●</span>
               <span>Found {searchResults.length} Matching Auto Corridors</span>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                ({searchFrom} ⇄ {searchTo})
-              </span>
+              {(searchFrom || searchTo) && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  ({searchFrom || 'Origin'} → {searchTo || 'Destination'})
+                </span>
+              )}
             </div>
             <span className="live-data-pill">{t.liveDataBadge}</span>
           </div>
@@ -521,7 +658,7 @@ export default function RouteSearchPanel() {
                   </p>
                 </div>
 
-                {/* Horizontal Corridor Flow Line (for direct route) */}
+                {/* Horizontal Corridor Flow Line */}
                 {route.stops && route.stops.length > 0 && (
                   <div className="horizontal-corridor-flow">
                     <div className="flow-header">

@@ -120,6 +120,115 @@ export function normalizeCoordinates(rawCoordinates) {
 }
 
 /**
+ * Strips common endpoint descriptor suffixes such as "(Origin Stand)" or "(Terminus)"
+ * from stop names to ensure clean location display.
+ *
+ * @param {string} name - Raw stop name
+ * @returns {string} Cleaned stop name
+ */
+export function cleanStopName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .replace(/\s*\((?:origin stand|origin|terminus|destination stand|destination|প্রারম্ভিক স্ট্যান্ড|টার্মিনাস)[^)]*\)/gi, '')
+    .trim();
+}
+
+/**
+ * Formats a route title as "Origin → Destination" without duplicating the origin or destination.
+ *
+ * 1. Prefers structured origin and destination fields from route data when available.
+ * 2. If the existing route name contains both origin and destination (e.g. "Serampore Station to Maheshwari Ferry"
+ *    or "Ruby More ⇄ Gariahat"), extracts them without prepending or appending duplicate names.
+ * 3. Uses a clear directional arrow (→) between origin and destination.
+ *
+ * @param {Object} route - Route data object
+ * @param {string} [defaultOrigin] - Fallback origin name (e.g. selected auto stand name)
+ * @returns {string} Clean formatted route title
+ */
+export function formatRouteTitle(route, defaultOrigin = '') {
+  if (!route) return '';
+
+  // 1. Structured origin (explicit)
+  let origin = 
+    route.originStandName || 
+    route.origin_stand_name || 
+    route.originName || 
+    route.origin_name || 
+    route.origin || 
+    '';
+
+  // 2. Structured destination (explicit)
+  let destination = 
+    route.destinationStandName || 
+    route.destination_stand_name || 
+    route.destinationName || 
+    route.destination_name || 
+    route.destination || 
+    '';
+
+  const rawName = (route.name || route.route_name || route.routeName || '').trim();
+
+  // If rawName contains both endpoints separated by an arrow, "to", or spaced dash:
+  if (rawName) {
+    const separatorRegex = /\s*(?:⇄|→|->|<->|\bto\b)\s*|\s+[-–—]\s+/i;
+    const match = rawName.match(separatorRegex);
+
+    if (match) {
+      const parts = rawName.split(match[0]);
+      if (parts.length >= 2) {
+        const parsedOrigin = parts[0].trim();
+        const parsedDest = parts.slice(1).join(' ').trim();
+
+        if (!origin && parsedOrigin) {
+          origin = parsedOrigin;
+        }
+        if (!destination && parsedDest) {
+          destination = parsedDest;
+        }
+      }
+    } else if (!destination) {
+      // No separator found; if rawName starts with origin, extract the remainder as destination
+      if (origin && rawName.toLowerCase().startsWith(origin.toLowerCase())) {
+        const remaining = rawName.slice(origin.length).replace(/^[\s\-–—:to→⇄>]+/i, '').trim();
+        destination = remaining || rawName;
+      } else {
+        destination = rawName;
+      }
+    }
+  }
+
+  // Fallbacks to defaultOrigin and startStop / destinationStop if still missing
+  if (!origin) {
+    origin = (route.startStop?.name ? cleanStopName(route.startStop.name) : '') || defaultOrigin || '';
+  }
+  if (!destination) {
+    destination = (route.destinationStop?.name ? cleanStopName(route.destinationStop.name) : '') || '';
+  }
+
+  origin = cleanStopName(origin);
+  destination = cleanStopName(destination);
+
+  // Guard: if destination still contains origin (e.g. destination was set to "Serampore Station to Maheshwari Ferry")
+  if (origin && destination) {
+    const destSep = destination.match(/\s*(?:⇄|→|->|<->|\bto\b)\s*|\s+[-–—]\s+/i);
+    if (destSep) {
+      const destParts = destination.split(destSep[0]);
+      if (destParts[0].trim().toLowerCase() === origin.toLowerCase()) {
+        destination = destParts.slice(1).join(' ').trim();
+      }
+    } else if (destination.toLowerCase().startsWith(origin.toLowerCase())) {
+      destination = destination.slice(origin.length).replace(/^[\s\-–—:to→⇄>]+/i, '').trim();
+    }
+  }
+
+  if (origin && destination) {
+    return `${origin} → ${destination}`;
+  }
+
+  return rawName || origin || destination || 'Auto Route';
+}
+
+/**
  * Normalizes a stop object ensuring valid [lat, lng] coordinates and attributes.
  *
  * @param {Object} rawStop - Stop object from backend
@@ -190,17 +299,49 @@ export function normalizeRouteData(raw) {
     ? normalizeStop(raw.destinationStop, normalizedStops.length + 1)
     : (normalizedStops[normalizedStops.length - 1] || null);
 
+  const rawRouteName = raw.name || raw.route_name || raw.routeName || '';
+
+  const explicitOrigin = 
+    raw.originStandName || 
+    raw.origin_stand_name || 
+    raw.originName || 
+    raw.origin_name || 
+    raw.origin || 
+    '';
+
+  const explicitDestination = 
+    raw.destinationStandName || 
+    raw.destination_stand_name || 
+    raw.destinationName || 
+    raw.destination_name || 
+    raw.destination || 
+    '';
+
+  const normalizedTitle = formatRouteTitle({
+    ...raw,
+    name: rawRouteName,
+    originStandName: explicitOrigin,
+    destinationStandName: explicitDestination,
+    startStop,
+    destinationStop
+  });
+
+  const originStandName = explicitOrigin || (startStop?.name ? cleanStopName(startStop.name) : '');
+  const destinationStandName = explicitDestination || (destinationStop?.name ? cleanStopName(destinationStop.name) : '');
+
   return {
     id: String(raw.id || raw.routeId),
     code: raw.code || raw.routeCode || 'AK-AUTO',
     codeAlt: raw.codeAlt || '',
-    name: raw.name || `${startStop?.name || 'Origin'} ⇄ ${destinationStop?.name || 'Destination'}`,
+    name: normalizedTitle || rawRouteName || `${startStop?.name || 'Origin'} → ${destinationStop?.name || 'Destination'}`,
     subtitle: raw.subtitle || '',
-    bengaliName: raw.bengaliName || raw.name || '',
+    bengaliName: raw.bengaliName || rawRouteName || '',
     bengaliSubtitle: raw.bengaliSubtitle || '',
     hindiName: raw.hindiName || '',
     originStandId: raw.originStandId || raw.origin_stand_id || startStop?.id || '',
     destinationStandId: raw.destinationStandId || raw.destination_stand_id || destinationStop?.id || '',
+    originStandName,
+    destinationStandName,
     
     // Road network geometry
     hasValidGeometry: geomResult.valid,

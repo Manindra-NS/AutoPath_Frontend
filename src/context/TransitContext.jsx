@@ -21,9 +21,10 @@ export function TransitProvider({ children }) {
   const [isStandPanelOpen, setIsStandPanelOpen] = useState(false);
   
   // Search parameters & results
-  const [searchFrom, setSearchFrom] = useState('Ruby More');
-  const [searchTo, setSearchTo] = useState('Gariahat');
+  const [searchFrom, setSearchFrom] = useState('');
+  const [searchTo, setSearchTo] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // Stand Popup state (for floating information popup when clicking stand markers)
   const [standPopup, setStandPopup] = useState({
@@ -172,6 +173,7 @@ export function TransitProvider({ children }) {
 
   // 4. Execute route search
   const executeSearch = useCallback(async (from, to, options = {}) => {
+    setHasSearched(true);
     setIsLoadingRoutes(true);
     setApiError(null);
     try {
@@ -198,9 +200,19 @@ export function TransitProvider({ children }) {
     }
   }, [selectedRouteId, loadRouteDetail]);
 
-  useEffect(() => {
-    executeSearch(searchFrom, searchTo);
-  }, []); // Initial search
+  // 5. Search locations for autocomplete (delegates to backend API)
+  const searchLocations = useCallback(async (query) => {
+    try {
+      const res = await transitService.searchLocations(query);
+      if (res.success && res.data) {
+        return { success: true, data: res.data };
+      }
+      return { success: false, data: [], error: res.error };
+    } catch (err) {
+      console.error('[TransitContext] searchLocations failed:', err);
+      return { success: false, data: [], error: err.message };
+    }
+  }, []);
 
   // Currently selected stand and route objects
   const selectedStand = selectedStandId
@@ -277,9 +289,13 @@ export function TransitProvider({ children }) {
   };
 
   const handleSwapStands = () => {
-    setSearchFrom(searchTo);
-    setSearchTo(searchFrom);
-    executeSearch(searchTo, searchFrom);
+    const newFrom = searchTo;
+    const newTo = searchFrom;
+    setSearchFrom(newFrom);
+    setSearchTo(newTo);
+    if (hasSearched && (newFrom || newTo)) {
+      executeSearch(newFrom, newTo);
+    }
   };
 
   const toggleLayer = (layerName) => {
@@ -318,7 +334,10 @@ export function TransitProvider({ children }) {
         searchTo,
         setSearchTo,
         searchResults,
+        hasSearched,
+        setHasSearched,
         executeSearch,
+        searchLocations,
         handleSwapStands,
         standPopup,
         openStandPopup,
