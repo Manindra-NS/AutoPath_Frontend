@@ -2321,3 +2321,1488 @@ input, select {
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTRIBUTE PANEL — Community Route Contribution Feature
+   ═══════════════════════════════════════════════════════════════ */
+
+.contribute-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-page);
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.contribute-header {
+  padding: 20px 32px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.contribute-header-inner {
+  max-width: 1700px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.contribute-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.contribute-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.contribute-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--brand-green);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.contribute-title-icon {
+  color: var(--brand-green);
+  flex-shrink: 0;
+}
+
+.contribute-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Step progress dots ── */
+.contribute-step-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contribute-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border-color);
+  transition: all 0.25s ease;
+}
+
+.contribute-step-dot.active {
+  background: var(--brand-green);
+  color: #fff;
+  border-color: var(--brand-green);
+}
+
+.contribute-step-dot.current {
+  box-shadow: 0 0 0 4px rgba(13, 92, 58, 0.15);
+}
+
+/* ── Step content wrapper ── */
+.contribute-step-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+
+.contribute-step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.contribute-step-number {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  background: var(--brand-green);
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contribute-step-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.contribute-step-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Form fields ── */
+.contribute-form-group {
+  margin-bottom: 18px;
+}
+
+.contribute-form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.contribute-form-half {
+  flex: 1;
+}
+
+.contribute-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.contribute-label-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.contribute-required {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.contribute-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.contribute-input-wrap {
+  position: relative;
+}
+
+.contribute-input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.contribute-input {
+  width: 100%;
+  padding: 10px 36px 10px 36px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-primary);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.contribute-input:focus {
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 3px rgba(13, 92, 58, 0.1);
+}
+
+.contribute-input-plain {
+  padding: 10px 14px;
+}
+
+.contribute-input-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.contribute-input-clear:hover {
+  color: var(--text-primary);
+  background: #f1f5f9;
+}
+
+.contribute-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-primary);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  min-height: 68px;
+}
+
+.contribute-textarea:focus {
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 3px rgba(13, 92, 58, 0.1);
+}
+
+/* ── Autocomplete dropdown ── */
+.contribute-autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  margin-top: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.contribute-autocomplete-loading,
+.contribute-autocomplete-empty {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contribute-autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.contribute-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.contribute-autocomplete-item:hover {
+  background: #f0fdf4;
+}
+
+.contribute-autocomplete-item-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.contribute-autocomplete-name {
+  font-weight: 600;
+}
+
+.contribute-autocomplete-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  text-transform: capitalize;
+}
+
+/* ── Buttons ── */
+.contribute-step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.contribute-step-actions-right {
+  display: flex;
+  gap: 10px;
+}
+
+.contribute-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.contribute-btn-primary {
+  background: var(--brand-green);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(13, 92, 58, 0.25);
+}
+
+.contribute-btn-primary:hover:not(:disabled) {
+  background: var(--brand-green-hover);
+  box-shadow: 0 4px 12px rgba(13, 92, 58, 0.3);
+}
+
+.contribute-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contribute-btn-secondary {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.contribute-btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.contribute-btn-back {
+  background: none;
+  color: var(--text-secondary);
+  padding: 9px 12px;
+}
+
+.contribute-btn-back:hover {
+  color: var(--text-primary);
+  background: #f1f5f9;
+  border-radius: var(--radius-md);
+}
+
+/* ── Spinner ── */
+.contribute-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* ═══ STEP 2 — Map Layout ═══ */
+.contribute-step-map {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contribute-map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.contribute-map-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.contribute-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.contribute-toolbar-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: var(--border-light, #94a3b8);
+}
+
+.contribute-toolbar-btn.active {
+  background: var(--brand-green);
+  color: #fff;
+  border-color: var(--brand-green);
+}
+
+.contribute-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.contribute-toolbar-btn.danger {
+  color: #dc2626;
+}
+
+.contribute-toolbar-btn.danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.contribute-toolbar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.contribute-toolbar-separator {
+  width: 1px;
+  height: 22px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* ── Map area ── */
+.contribute-map-area {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.contribute-map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.contribute-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.contribute-map-mode-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Intermediate Stoppages Panel ── */
+.contribute-waypoints-panel {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  width: 320px;
+  max-height: calc(100% - 24px);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 500;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease;
+}
+
+.contribute-waypoints-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #F8FAFC;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.contribute-waypoints-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-green);
+}
+
+.contribute-waypoints-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contribute-waypoints-optional-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #E2E8F0;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.contribute-waypoints-close-btn {
+  display: none; /* Shown on mobile */
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.contribute-waypoints-close-btn:hover {
+  color: var(--text-primary);
+  background: #E2E8F0;
+}
+
+.contribute-waypoints-scroll-area {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.contribute-waypoints-scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.contribute-waypoints-scroll-area::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.contribute-waypoint-card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contribute-waypoint-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contribute-waypoint-label-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contribute-waypoint-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.contribute-waypoint-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+}
+
+.contribute-waypoint-num-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.contribute-waypoint-coords-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  display: flex;
+  gap: 6px;
+}
+
+.contribute-waypoint-delete-btn {
+  color: #94a3b8;
+  padding: 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.contribute-waypoint-delete-btn:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.contribute-waypoint-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.contribute-waypoint-input {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 26px 6px 9px;
+  background: #F8FAFC;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.contribute-waypoint-input:focus {
+  background: #ffffff;
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 2px rgba(13, 92, 58, 0.1);
+}
+
+.contribute-waypoint-input::placeholder {
+  color: #94A3B8;
+  font-size: 11px;
+}
+
+.contribute-waypoint-clear-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.contribute-waypoint-clear-btn:hover {
+  color: var(--text-primary);
+}
+
+/* ── Points summary bar ── */
+.contribute-points-summary {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px;
+  background: #fff;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.contribute-points-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.contribute-points-item-btn {
+  cursor: pointer;
+  background: #f1f5f9;
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  transition: all 0.2s;
+}
+
+.contribute-points-item-btn:hover {
+  background: #e2e8f0;
+}
+
+.contribute-points-pill-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-left: 2px;
+}
+
+.contribute-points-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ═══ VISUAL INSTRUCTION GUIDE OVERLAY ═══ */
+.contribute-guide-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.contribute-guide-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-floating);
+  max-width: 420px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.contribute-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--brand-green);
+  color: #fff;
+}
+
+.contribute-guide-header h4 {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.contribute-guide-close {
+  color: rgba(255, 255, 255, 0.7);
+  padding: 2px;
+}
+
+.contribute-guide-close:hover {
+  color: #fff;
+}
+
+.contribute-guide-body {
+  padding: 20px;
+}
+
+.contribute-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.contribute-guide-marker {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.contribute-guide-step strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.contribute-guide-step p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.contribute-guide-line-example {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  justify-content: center;
+  margin: 18px 0 14px;
+}
+
+.contribute-guide-line-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.contribute-guide-line-dash {
+  width: 40px;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    #0D5C3A 0, #0D5C3A 8px,
+    transparent 8px, transparent 14px
+  );
+}
+
+.contribute-guide-tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #f0fdf4;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.contribute-guide-start-btn {
+  margin: 0 20px 20px;
+  width: calc(100% - 40px);
+  justify-content: center;
+}
+
+/* ═══ STEP 1 — Form Layout ═══ */
+.contribute-step-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.contribute-form-card {
+  width: 100%;
+}
+
+.contribute-form-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .contribute-step-info {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    width: 100%;
+  }
+
+  .contribute-form-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    padding: 36px 40px;
+  }
+
+  .contribute-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+/* ═══ STEP 3 — Review Layout (Desktop & Tablet) ═══ */
+.contribute-step-review {
+  width: 100%;
+  padding: 24px;
+}
+
+.contribute-review-container {
+  width: 100%;
+}
+
+.contribute-review-left-col {
+  width: 100%;
+}
+
+.contribute-review-card-wrapper {
+  width: 100%;
+}
+
+.contribute-review-card {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.contribute-review-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.contribute-review-row:last-child {
+  border-bottom: none;
+}
+
+.contribute-review-waypoints-row {
+  align-items: flex-start;
+}
+
+.contribute-review-waypoints-col {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.contribute-review-waypoint-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.contribute-review-waypoint-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+  min-width: 16px;
+}
+
+.contribute-review-waypoint-text {
+  font-weight: 600;
+  color: #0D5C3A;
+}
+
+.contribute-review-waypoint-text.unnamed {
+  color: #94A3B8;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.contribute-review-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 110px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-top: 1px;
+}
+
+.contribute-review-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  word-break: break-word;
+}
+
+.contribute-review-badge {
+  background: #f0fdf4;
+  color: var(--brand-green);
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  display: inline-block;
+}
+
+.contribute-preview-map {
+  width: 100%;
+  height: 300px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+/* ── Ordered points list ── */
+.contribute-points-list {
+  margin-bottom: 20px;
+}
+
+.contribute-points-list-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.contribute-points-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contribute-point-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.contribute-point-seq {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contribute-point-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.contribute-point-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.contribute-point-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contribute-point-coords {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* ═══ STEP 4 — Result ═══ */
+.contribute-step-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.contribute-result-card {
+  text-align: center;
+  max-width: 440px;
+  padding: 40px;
+}
+
+.contribute-result-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.contribute-result-icon.success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.contribute-result-icon.error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.contribute-result-card h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.contribute-result-card p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.contribute-result-id {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.contribute-result-id code {
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--brand-green);
+}
+
+.contribute-result-status {
+  margin-bottom: 24px;
+}
+
+.contribute-status-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+}
+
+.contribute-status-badge.pending {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE LAYOUTS — Desktop (1024px+), Tablet, Mobile (<768px)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Desktop Screens (min-width: 1024px) ── */
+@media (min-width: 1024px) {
+  .contribute-header {
+    padding: 22px 48px;
+  }
+
+  .contribute-step-review {
+    max-width: 1700px;
+    margin: 0 auto;
+    padding: 32px 48px;
+    width: 100%;
+  }
+
+  .contribute-review-container {
+    display: grid;
+    grid-template-columns: 38% 1fr; /* 38% Left / approx 62% Right */
+    gap: 24px;
+    align-items: start;
+    width: 100%;
+  }
+
+  /* Left Column – 38% white card */
+  .contribute-review-left-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .contribute-review-card-wrapper {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .contribute-review-card-wrapper .contribute-step-header {
+    margin-bottom: 0;
+  }
+
+  .contribute-review-card-wrapper .contribute-review-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 0;
+  }
+
+  .contribute-points-scroll-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .contribute-points-scroll-list::-webkit-scrollbar {
+    width: 5px;
+  }
+  .contribute-points-scroll-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+  }
+
+  .contribute-review-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .contribute-review-actions .contribute-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* Right Column – Interactive Map approx 62% */
+  .contribute-review-right-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: sticky;
+    top: 24px;
+  }
+
+  .contribute-review-right-col .contribute-preview-map {
+    height: 520px;
+    min-height: 500px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    margin-bottom: 0;
+    overflow: hidden;
+  }
+
+  .contribute-map-toolbar {
+    padding: 12px 32px;
+  }
+
+  .contribute-points-summary {
+    padding: 12px 32px;
+  }
+}
+
+/* ── Tablet Screens (768px – 1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .contribute-header {
+    padding: 18px 28px;
+  }
+
+  .contribute-step-review {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .contribute-review-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .contribute-review-card-wrapper {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .contribute-preview-map {
+    height: 380px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+
+  .contribute-review-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .contribute-review-actions .contribute-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .contribute-step-info {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .contribute-form-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  }
+}
+
+/* ── Mobile Screens (< 768px) – PRESERVE EXACT MOBILE DESIGN ── */
+@media (max-width: 767px) {
+  .contribute-header {
+    padding: 14px 16px 12px;
+  }
+
+  .contribute-header-top {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .contribute-title {
+    font-size: 18px;
+  }
+
+  .contribute-subtitle {
+    font-size: 12px;
+  }
+
+  .contribute-step-content {
+    padding: 16px;
+  }
+
+  /* Intermediate points drawer on mobile */
+  .contribute-waypoints-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 230px;
+    border-radius: 14px 14px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    display: none;
+  }
+
+  .contribute-waypoints-panel.mobile-open {
+    display: flex;
+  }
+
+  .contribute-waypoints-close-btn {
+    display: flex;
+  }
+
+  /* Step 3: display: contents ensures exact mobile vertical stacking */
+  .contribute-review-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .contribute-review-left-col,
+  .contribute-review-card-wrapper,
+  .contribute-review-right-col {
+    display: contents;
+  }
+
+  .contribute-step-header {
+    order: 1;
+  }
+
+  .contribute-review-card {
+    order: 2;
+  }
+
+  .contribute-preview-map {
+    order: 3;
+    height: 220px;
+    margin-bottom: 20px;
+  }
+
+  .contribute-points-list {
+    order: 4;
+    margin-bottom: 20px;
+  }
+
+  .contribute-step-actions {
+    order: 5;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .contribute-map-toolbar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .contribute-map-toolbar-actions {
+    gap: 4px;
+  }
+
+  .contribute-toolbar-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .contribute-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .contribute-guide-card {
+    max-width: 100%;
+  }
+
+  .contribute-points-summary {
+    gap: 12px;
+    padding: 8px 14px;
+  }
+
+  .contribute-step-actions-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .contribute-step-actions-right .contribute-btn,
+  .contribute-review-actions .contribute-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .contribute-step-review {
+    max-width: 100%;
+    padding: 16px;
+  }
+}

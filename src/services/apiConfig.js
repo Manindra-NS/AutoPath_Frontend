@@ -30,5 +30,8 @@ export const ENDPOINTS = {
   searchLocations: '/locations/search',
   findRoutes: '/routes/search',
   routeDetail: (id) => `/routes/${encodeURIComponent(id)}`,
-  routeStops: (id) => `/routes/${encodeURIComponent(id)}/stops`
+  routeStops: (id) => `/routes/${encodeURIComponent(id)}/stops`,
+
+  // Community contributions
+  contributions: '/contributions',
 };

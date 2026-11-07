@@ -8,6 +8,7 @@ import RouteSearchPanel from './components/RouteSearchPanel';
 import AutoStandsModal from './components/AutoStandsModal';
 import LanguageModal from './components/LanguageModal';
 import PreferencesModal from './components/PreferencesModal';
+import ContributePanel from './components/ContributePanel';
 
 function MainApp() {
   const { activeTab } = useTransit();
@@ -47,6 +48,11 @@ function MainApp() {
               <MapView />
             </div>
           </>
+        )}
+
+        {/* If Contribute mode */}
+        {activeTab === 'contribute' && (
+          <ContributePanel />
         )}
       </main>
 

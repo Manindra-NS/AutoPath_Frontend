@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTransit } from '../context/TransitContext';
-import { Map, Search, SlidersHorizontal, User } from 'lucide-react';
+import { Map, Search, SlidersHorizontal, User, PlusCircle } from 'lucide-react';
 
 export default function Header() {
   const {
@@ -57,6 +57,15 @@ export default function Header() {
           >
             <Search size={15} />
             <span>{t.navSearch}</span>
+          </button>
+
+          <button
+            className={`nav-tab-btn ${activeTab === 'contribute' ? 'active' : ''}`}
+            onClick={() => handleTabClick('contribute')}
+            id="tab-contribute"
+          >
+            <PlusCircle size={15} />
+            <span>Contribute</span>
           </button>
 
           <button
@@ -127,6 +136,14 @@ export default function Header() {
         >
           <Search size={18} />
           <span>{t.navSearch}</span>
+        </button>
+
+        <button
+          className={`mobile-nav-item ${activeTab === 'contribute' ? 'active' : ''}`}
+          onClick={() => handleTabClick('contribute')}
+        >
+          <PlusCircle size={18} />
+          <span>Contribute</span>
         </button>
 
         <button
