@@ -20,10 +20,22 @@ import {
   Info
 } from 'lucide-react';
 import OfflineFallbackMap from './OfflineFallbackMap';
-import { cleanStopName, isRegularAutoStand } from '../services/routeNormalizer';
+import { cleanStopName, isRegularAutoStand, formatStoppageLabel } from '../services/routeNormalizer';
 
 // Read Google Maps API key from environment (set in .env, never hardcoded in source)
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+/**
+ * Zoom threshold for displaying regular auto stoppage name labels on the map.
+ * When map zoom < STAND_LABEL_ZOOM_THRESHOLD:
+ * - Only regular yellow-green circular markers are shown.
+ * - Stoppage name labels are hidden to keep the map clean and prevent label overlap.
+ * When map zoom >= STAND_LABEL_ZOOM_THRESHOLD:
+ * - Stoppage name labels appear above their respective markers.
+ * Exception: Starting and ending stoppage names of the active selected route
+ * are ALWAYS visible regardless of zoom level.
+ */
+export const STAND_LABEL_ZOOM_THRESHOLD = 15;
 
 export default function MapView() {
   const mapContainerRef = useRef(null);
@@ -36,6 +48,7 @@ export default function MapView() {
 
   const [tileError, setTileError] = useState(false);
   const [showBottomToast, setShowBottomToast] = useState(true);
+  const [mapZoom, setMapZoom] = useState(14);
 
   const {
     stands,
@@ -156,9 +169,29 @@ export default function MapView() {
     layersGroupRef.current.stops.addTo(map);
     layersGroupRef.current.stands.addTo(map);
 
+    // Dynamic zoom monitoring for label visibility
+    const handleZoomChange = () => {
+      const currentZoom = map.getZoom();
+      const isNowZoomedIn = currentZoom >= STAND_LABEL_ZOOM_THRESHOLD;
+      if (mapContainerRef.current) {
+        mapContainerRef.current.classList.toggle('map-zoomed-in', isNowZoomedIn);
+      }
+      setMapZoom((prevZoom) => {
+        const wasZoomedIn = prevZoom >= STAND_LABEL_ZOOM_THRESHOLD;
+        // Only trigger React state update when crossing the zoom threshold to avoid unnecessary re-renders
+        if (wasZoomedIn !== isNowZoomedIn) {
+          return currentZoom;
+        }
+        return prevZoom;
+      });
+    };
+
+    map.on('zoomend', handleZoomChange);
+
     mapInstanceRef.current = map;
 
     return () => {
+      map.off('zoomend', handleZoomChange);
       // Keep map instance alive; cleanup handled when component unmounts fully
     };
   }, [isOffline, tileError, loadGoogleMapsScript]);
@@ -307,27 +340,66 @@ export default function MapView() {
     // 3. Draw Auto Stands (Yellow-Green circular markers)
     // ONLY display regular auto stands (actual auto stand or route starting/ending locations).
     // NEVER display intermediate stoppages as regular auto stand markers.
+    // DYNAMIC ZOOM VISIBILITY:
+    // - When zoomed out (< STAND_LABEL_ZOOM_THRESHOLD): Hide ordinary stoppage name labels to prevent clutter.
+    // - When zoomed in (>= STAND_LABEL_ZOOM_THRESHOLD): Show regular stoppage names above their markers.
+    // - EXCEPTION: Selected route endpoints (origin & destination stands) are ALWAYS visible.
     const regularStands = stands.filter((stand) => isRegularAutoStand(stand));
     if (layers.stands && regularStands.length > 0) {
       regularStands.forEach((stand) => {
         if (!stand.coordinates) return;
         const isSelected = isStandPanelOpen && stand.id === selectedStand?.id;
 
+        // Check if this stand is an origin or destination endpoint of the active selected route
+        const isRouteEndpoint = Boolean(
+          selectedRoute && (
+            (selectedRoute.originStandId && String(stand.id).toLowerCase() === String(selectedRoute.originStandId).toLowerCase()) ||
+            (selectedRoute.destinationStandId && String(stand.id).toLowerCase() === String(selectedRoute.destinationStandId).toLowerCase()) ||
+            (selectedRoute.startStop?.id && String(stand.id).toLowerCase() === String(selectedRoute.startStop.id).toLowerCase()) ||
+            (selectedRoute.destinationStop?.id && String(stand.id).toLowerCase() === String(selectedRoute.destinationStop.id).toLowerCase()) ||
+            (selectedRoute.originStandName && cleanStopName(stand.name).toLowerCase() === cleanStopName(selectedRoute.originStandName).toLowerCase()) ||
+            (selectedRoute.destinationStandName && cleanStopName(stand.name).toLowerCase() === cleanStopName(selectedRoute.destinationStandName).toLowerCase()) ||
+            (selectedRoute.startStop?.name && cleanStopName(stand.name).toLowerCase() === cleanStopName(selectedRoute.startStop.name).toLowerCase()) ||
+            (selectedRoute.destinationStop?.name && cleanStopName(stand.name).toLowerCase() === cleanStopName(selectedRoute.destinationStop.name).toLowerCase()) ||
+            (Array.isArray(stand.landmarks) && stand.landmarks.some((lm) => {
+              const lmName = cleanStopName(lm.name || '').toLowerCase();
+              const origName = cleanStopName(selectedRoute.originStandName || selectedRoute.startStop?.name || '').toLowerCase();
+              const destName = cleanStopName(selectedRoute.destinationStandName || selectedRoute.destinationStop?.name || '').toLowerCase();
+              return (origName && lmName && (origName.includes(lmName) || lmName.includes(origName))) ||
+                     (destName && lmName && (destName.includes(lmName) || lmName.includes(destName)));
+            }))
+          )
+        );
+
+        // Zoom-based visibility rule:
+        // Endpoints of active route & currently selected stand are ALWAYS visible.
+        // Ordinary regular stands are visible only when current zoom >= threshold.
+        const isLabelVisible = isRouteEndpoint || isSelected || mapZoom >= STAND_LABEL_ZOOM_THRESHOLD;
+
+        const badgeClasses = [
+          'stand-marker-label-badge',
+          isRouteEndpoint ? 'is-endpoint-label' : '',
+          isSelected ? 'is-selected-label' : '',
+          !isLabelVisible ? 'stand-marker-label-hidden' : ''
+        ].filter(Boolean).join(' ');
+
         const standIcon = L.divIcon({
           className: 'custom-stand-marker-node',
           html: `
             <div class="custom-stand-marker">
               <div class="stand-marker-outer-ring" style="${
-                isSelected
+                isSelected || isRouteEndpoint
                   ? 'transform: scale(1.18); box-shadow: 0 0 16px rgba(132, 204, 22, 0.9); background: rgba(190, 242, 100, 0.65);'
                   : ''
               }">
                 <div class="stand-marker-inner-core"></div>
               </div>
-              <div class="stand-marker-label-badge" style="${
+              <div class="${badgeClasses}" style="${
                 isSelected ? 'background: #0D5C3A; border: 1px solid #BEF264;' : ''
+              }${
+                !isLabelVisible ? 'display: none;' : ''
               }">
-                ${stand.name.split('(')[0]} (${stand.bengaliName || ''})
+                ${formatStoppageLabel(stand.name, stand.bengaliName)}
               </div>
             </div>
           `,
@@ -335,7 +407,23 @@ export default function MapView() {
           iconAnchor: [16, 16]
         });
 
-        const marker = L.marker(stand.coordinates, { icon: standIcon }).addTo(standGroup);
+        const marker = L.marker(stand.coordinates, {
+          icon: standIcon,
+          zIndexOffset: isRouteEndpoint || isSelected ? 1000 : 200
+        }).addTo(standGroup);
+
+        const tooltipName = formatStoppageLabel(
+          stand.fullName || stand.name,
+          language === 'bn' ? stand.bengaliName : (stand.bengaliName && stand.bengaliName.trim().toLowerCase() !== (stand.name || '').trim().toLowerCase() ? stand.bengaliName : null)
+        );
+
+        marker.bindTooltip(
+          `<strong>${tooltipName}</strong><br/><span style="font-size: 10px; color: #84CC16; font-weight: 700;">Auto Stand</span>`,
+          {
+            direction: 'top',
+            offset: [0, -18]
+          }
+        );
 
         marker.on('click', () => {
           handleSelectStand(stand.id);
@@ -355,7 +443,8 @@ export default function MapView() {
     language,
     isOffline,
     tileError,
-    setSelectedRouteId
+    setSelectedRouteId,
+    mapZoom
   ]);
 
   // Pan/zoom map to fit route geometry or stops
@@ -586,7 +675,9 @@ export default function MapView() {
                 <span>{standPopup.stand.tier || 'AUTO STAND HUB'}</span>
               </div>
               <h3 className="stand-popup-name">
-                {language === 'bn' ? standPopup.stand.bengaliName : standPopup.stand.name}
+                {language === 'bn' && standPopup.stand.bengaliName && standPopup.stand.bengaliName.trim().toLowerCase() !== (standPopup.stand.name || '').trim().toLowerCase()
+                  ? `${standPopup.stand.name} (${standPopup.stand.bengaliName})`
+                  : (standPopup.stand.fullName || standPopup.stand.name)}
               </h3>
               <p className="stand-popup-sub">
                 {standPopup.stand.coordsDescription || 'Kolkata Transit Corridor'}

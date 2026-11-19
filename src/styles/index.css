@@ -2213,6 +2213,32 @@ input, select {
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Hidden by default when map is zoomed out */
+.stand-marker-label-badge.stand-marker-label-hidden {
+  display: none !important;
+}
+
+/* Endpoint labels for the active selected route: ALWAYS visible regardless of zoom */
+.stand-marker-label-badge.is-endpoint-label {
+  display: block !important;
+  background: #0D5C3A !important;
+  color: #FFFFFF !important;
+  border: 1px solid #BEF264 !important;
+  box-shadow: 0 2px 8px rgba(13, 92, 58, 0.45);
+  z-index: 1000;
+}
+
+/* Selected stand label: ALWAYS visible */
+.stand-marker-label-badge.is-selected-label {
+  display: block !important;
+  background: #0D5C3A !important;
+  color: #FFFFFF !important;
+  border: 1px solid #BEF264 !important;
+  box-shadow: 0 2px 8px rgba(13, 92, 58, 0.45);
+  z-index: 1000;
 }
 
 .custom-stop-marker {
@@ -2267,26 +2293,26 @@ input, select {
   box-shadow: 0 0 6px rgba(13, 148, 136, 0.6);
 }
 
-/* Subtle, readable text label: smaller font (8.5px), avoiding large dark label boxes */
+/* Subtle, readable text label: comfortably readable font (12.5px, increased by 4px), avoiding large dark label boxes */
 .intermediate-stop-label {
   position: absolute;
-  top: 9px;
-  background: rgba(255, 255, 255, 0.94);
+  top: 10px;
+  background: rgba(255, 255, 255, 0.95);
   color: #0F766E;
   border: 1px solid rgba(13, 148, 136, 0.35);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-size: 8.5px;
-  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12.5px;
+  font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
   letter-spacing: -0.1px;
-  max-width: 140px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
   transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
@@ -2295,7 +2321,7 @@ input, select {
   background: #FFFFFF;
   color: #115E59;
   border-color: #0D9488;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transform: translateY(1px);
   z-index: 1000;
 }

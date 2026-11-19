@@ -74,7 +74,7 @@ export default function InteractiveMapPanel() {
         <div className="stand-panel-title-area">
           <h2 className="stand-panel-title">
             {selectedStand.fullName || selectedStand.name}
-            {selectedStand.bengaliName && (
+            {selectedStand.bengaliName && selectedStand.bengaliName.trim().toLowerCase() !== (selectedStand.name || '').trim().toLowerCase() && (
               <span className="stand-panel-bengali-name">
                 {' '}({selectedStand.bengaliName} অটো স্ট্যান্ড)
               </span>

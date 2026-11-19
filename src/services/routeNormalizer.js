@@ -121,16 +121,82 @@ export function normalizeCoordinates(rawCoordinates) {
 
 /**
  * Strips common endpoint descriptor suffixes such as "(Origin Stand)" or "(Terminus)"
- * from stop names to ensure clean location display.
+ * from stop names, and removes duplicate names wrapped in parentheses.
  *
  * @param {string} name - Raw stop name
  * @returns {string} Cleaned stop name
  */
 export function cleanStopName(name) {
   if (!name || typeof name !== 'string') return '';
-  return name
+  let cleaned = name
     .replace(/\s*\((?:origin stand|origin|terminus|destination stand|destination|প্রারম্ভিক স্ট্যান্ড|টার্মিনাস)[^)]*\)/gi, '')
     .trim();
+
+  // Remove duplicate name wrapped in parentheses: e.g. "Ruby General Hospital (Ruby General Hospital)" -> "Ruby General Hospital"
+  const dupMatch = cleaned.match(/^(.+?)\s*\(([^)]+)\)$/);
+  if (dupMatch) {
+    const mainPart = dupMatch[1].trim();
+    const parenPart = dupMatch[2].trim();
+    if (mainPart.toLowerCase() === parenPart.toLowerCase()) {
+      cleaned = mainPart;
+    }
+  }
+
+  return cleaned;
+}
+
+/**
+ * Formats a stoppage display label combining primary and secondary/localized names
+ * while eliminating duplicate names and empty parentheses.
+ *
+ * Rules:
+ * 1. Display only the primary stoppage name when the primary name and secondary/localized name are identical.
+ * 2. If both names are different, preserve the display format: "Primary (Secondary)".
+ * 3. If the secondary name is empty, null, or undefined, display only the primary name without empty brackets.
+ * 4. Case-insensitive, trimmed comparison to prevent duplicates caused by spaces or casing differences.
+ * 5. If the primary name itself already contains duplicate text in parentheses (e.g. "Name (Name)"),
+ *    cleans it to "Name".
+ *
+ * Examples:
+ * - formatStoppageLabel('Ruby General Hospital', 'Ruby General Hospital') -> 'Ruby General Hospital'
+ * - formatStoppageLabel('Gariahat', 'Gariahat') -> 'Gariahat'
+ * - formatStoppageLabel('Ruby General Hospital', 'Ruby Hospital') -> 'Ruby General Hospital (Ruby Hospital)'
+ * - formatStoppageLabel('Gariahat', null) -> 'Gariahat'
+ *
+ * @param {string} primary - Primary stoppage name
+ * @param {string} [secondary] - Secondary or localized stoppage name
+ * @returns {string} Formatted stoppage label without duplicate names
+ */
+export function formatStoppageLabel(primary, secondary) {
+  if (!primary && !secondary) return '';
+
+  let rawPrimary = cleanStopName(String(primary || '').trim());
+  const basePrimary = rawPrimary.split('(')[0].trim() || rawPrimary;
+
+  let cleanSecondary = String(secondary || '').trim();
+  cleanSecondary = cleanSecondary.replace(/^\(|\)$/g, '').trim();
+
+  // If secondary name is empty or null, return primary name without brackets
+  if (!cleanSecondary) {
+    return basePrimary;
+  }
+
+  // If primary name is empty, return secondary name
+  if (!basePrimary) {
+    return cleanSecondary;
+  }
+
+  // Case-insensitive, trimmed comparison
+  if (basePrimary.toLowerCase() === cleanSecondary.toLowerCase()) {
+    return basePrimary;
+  }
+
+  // Check if primary name already ends with the secondary name in parentheses
+  if (basePrimary.toLowerCase().endsWith(`(${cleanSecondary.toLowerCase()})`)) {
+    return basePrimary;
+  }
+
+  return `${basePrimary} (${cleanSecondary})`;
 }
 
 /**
