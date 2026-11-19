@@ -18,6 +18,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ गड़ियाहाট',
     originStandId: 'ruby-more',
     destinationStandId: 'gariahat',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     startStop: {
       id: 'stop-ruby',
       name: 'Ruby More (Origin Stand)',
@@ -166,6 +168,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ जादवपुर 8बी',
     originStandId: 'ruby-more',
     destinationStandId: 'jadavpur-8b',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     startStop: {
       id: 'rj-1',
       name: 'Ruby More',
@@ -228,6 +232,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ गड़िया (कवि नजरुल)',
     originStandId: 'ruby-more',
     destinationStandId: 'garia-metro',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     startStop: {
       id: 'rg-1',
       name: 'Ruby More',
@@ -289,6 +295,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ चौबागा / आनंदपुर',
     originStandId: 'ruby-more',
     destinationStandId: 'chowbaga',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     startStop: {
       id: 'rc-1',
       name: 'Ruby More',
@@ -347,6 +355,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ जादवपुर 8बी ⇄ गड़ियाहाट',
     originStandId: 'ruby-more',
     destinationStandId: 'gariahat',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     transferStandId: 'jadavpur-8b',
     startStop: {
       id: 'tj-1',
@@ -411,6 +421,8 @@ export const routesData = [
     hindiName: 'रूबी मोड़ ⇄ बालीगंज फाड़ी',
     originStandId: 'ruby-more',
     destinationStandId: 'ballygunge-phari',
+    direction: 'bidirectional',
+    is_bidirectional: true,
     startStop: {
       id: 'bp-1',
       name: 'Ruby More',

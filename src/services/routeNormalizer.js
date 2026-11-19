@@ -231,7 +231,12 @@ export function formatRouteTitle(route, defaultOrigin = '') {
 /**
  * Normalizes a stop object ensuring valid [lat, lng] coordinates and attributes.
  *
- * @param {Object} rawStop - Stop object from backend
+ * Distinguishes:
+ * - Regular auto stands (terminals/stands)
+ * - Intermediate passenger stoppages (named points along the corridor)
+ * - Pure geometry points (no stoppage name, is_intermediate_stoppage: false)
+ *
+ * @param {Object} rawStop - Stop object from backend or mock
  * @param {number} defaultOrder - Fallback order index
  * @returns {Object} Normalized stop object
  */
@@ -242,19 +247,36 @@ export function normalizeStop(rawStop, defaultOrder = 1) {
     rawStop.coordinates || rawStop.coords || [rawStop.latitude || rawStop.lat, rawStop.longitude || rawStop.lng]
   );
 
+  const isStand = Boolean(rawStop.isStand || rawStop.is_stand || rawStop.type === 'stand');
+  const rawName = (rawStop.stoppage_name || rawStop.name || '').trim();
+  
+  // A point is an intermediate stoppage if:
+  // - It is explicitly marked is_intermediate_stoppage: true
+  // - OR it is NOT a stand, NOT geometry-only, and has a meaningful stoppage name
+  const isExplicitIntermediate = Boolean(
+    rawStop.is_intermediate_stoppage === true || 
+    rawStop.isIntermediateStoppage === true || 
+    rawStop.is_intermediate === true ||
+    rawStop.stop_type === 'intermediate'
+  );
+  const isGeometryOnly = rawStop.is_intermediate_stoppage === false && !rawStop.stoppage_name;
+
+  const isIntermediateStoppage = isExplicitIntermediate || (!isStand && !isGeometryOnly && Boolean(rawName));
+
   return {
     id: String(rawStop.id || rawStop.stopId || `stop-${defaultOrder}`),
-    name: rawStop.name || 'Auto Stop',
-    bengaliName: rawStop.bengaliName || rawStop.name || 'অটো স্টপ',
-    hindiName: rawStop.hindiName || '',
-    order: typeof rawStop.order === 'number' ? rawStop.order : defaultOrder,
+    name: rawName || 'Auto Stop',
+    bengaliName: rawStop.bengaliName || rawStop.bengali_name || rawName || 'অটো স্টপ',
+    hindiName: rawStop.hindiName || rawStop.hindi_name || '',
+    order: typeof rawStop.order === 'number' ? rawStop.order : (typeof rawStop.sequence === 'number' ? rawStop.sequence : defaultOrder),
     distance: rawStop.distance || `${rawStop.distKm || 0} km`,
     distKm: Number(rawStop.distKm ?? rawStop.distanceKm ?? 0),
     badge: rawStop.badge || null,
     badgeIcon: rawStop.badgeIcon || null,
     subtext: rawStop.subtext || '',
-    isStand: Boolean(rawStop.isStand),
-    isTransfer: Boolean(rawStop.isTransfer),
+    isStand,
+    isIntermediateStoppage,
+    isTransfer: Boolean(rawStop.isTransfer || rawStop.is_transfer),
     coordinates: coords
   };
 }
@@ -353,6 +375,12 @@ export function normalizeRouteData(raw) {
     destinationStop,
     stops: normalizedStops,
     
+    // Directionality
+    direction: raw.direction || (raw.is_bidirectional !== false && (rawRouteName.includes('⇄') || rawRouteName.includes('<->')) ? 'bidirectional' : 'one_way'),
+    is_bidirectional: raw.is_bidirectional !== undefined 
+      ? Boolean(raw.is_bidirectional) 
+      : (raw.direction === 'bidirectional' || rawRouteName.includes('⇄') || rawRouteName.includes('<->')),
+
     // Metadata
     fareRange: raw.fareRange || raw.fare_range || '₹12 - ₹15',
     fareFixed: raw.fareFixed || raw.fare_fixed || '₹15 Fixed',
@@ -368,5 +396,164 @@ export function normalizeRouteData(raw) {
     category: raw.category || '',
     status: raw.status || 'Active Queue Now',
     notes: raw.notes || ''
+  };
+}
+
+/**
+ * Validates whether a location/stand object is a Regular Auto Stand.
+ *
+ * Rules:
+ * - Actual auto stand or route starting/ending locations.
+ * - Must NOT be an intermediate stoppage or geometry point.
+ * - Connected to at least one active auto route (or registered stand hub).
+ * - Should be rendered with the large yellow-green circular marker on the map.
+ *
+ * @param {Object} location - Stand or stop candidate
+ * @param {Array} [allRoutes] - Available routes to inspect relationships
+ * @returns {boolean} True if this is a regular auto stand
+ */
+export function isRegularAutoStand(location, allRoutes = []) {
+  if (!location) return false;
+
+  // 1. Explicit intermediate stoppage flags -> definitely NOT a regular auto stand
+  if (
+    location.is_intermediate_stoppage === true ||
+    location.isIntermediateStoppage === true ||
+    location.is_intermediate === true ||
+    location.stop_type === 'intermediate' ||
+    location.type === 'intermediate' ||
+    location.type === 'stop' ||
+    location.type === 'waypoint' ||
+    location.isStand === false ||
+    location.is_stand === false
+  ) {
+    return false;
+  }
+
+  // 2. Explicit stand indicators -> is a regular auto stand
+  if (
+    location.isStand === true ||
+    location.is_stand === true ||
+    location.type === 'stand' ||
+    location.tier ||
+    location.standFormat
+  ) {
+    return true;
+  }
+
+  // 3. Inspect route-to-stoppage relationships if routes are available
+  if (Array.isArray(allRoutes) && allRoutes.length > 0) {
+    const locId = String(location.id || location.standId || '').toLowerCase();
+    const locName = cleanStopName(String(location.name || '')).toLowerCase();
+
+    // Is it a terminal (origin or destination) of any route?
+    const isTerminal = allRoutes.some((route) => {
+      const origId = String(route.originStandId || route.origin_stand_id || route.startStop?.id || '').toLowerCase();
+      const destId = String(route.destinationStandId || route.destination_stand_id || route.destinationStop?.id || '').toLowerCase();
+      const origName = cleanStopName(String(route.originStandName || route.startStop?.name || '')).toLowerCase();
+      const destName = cleanStopName(String(route.destinationStandName || route.destinationStop?.name || '')).toLowerCase();
+
+      return (
+        (locId && (origId === locId || destId === locId)) ||
+        (locName && (origName === locName || destName === locName))
+      );
+    });
+
+    if (isTerminal) return true;
+
+    // Is it explicitly an intermediate stop on a route?
+    const isIntermediate = allRoutes.some((route) => {
+      const stops = route.stops || route.intermediateStops || [];
+      return stops.some((s) => {
+        if (s.isStand || s.is_stand) return false;
+        const sId = String(s.id || '').toLowerCase();
+        const sName = cleanStopName(String(s.name || s.stoppage_name || '')).toLowerCase();
+        return (locId && sId === locId) || (locName && sName === locName);
+      });
+    });
+
+    if (isIntermediate) return false;
+  }
+
+  // 4. Default: verify it has stand attributes (lines, landmarks, or queue format)
+  return Boolean(location.activeLinesCount || location.landmarks || location.queueSystem);
+}
+
+/**
+ * Validates whether a location/stop is an Intermediate Stoppage.
+ *
+ * Rules:
+ * - Location along an auto route that passengers pass through or identify.
+ * - Not an independent auto stand.
+ * - Must NOT use regular yellow-green markers or appear on default map.
+ * - Displayed ONLY when its specific route is selected.
+ *
+ * @param {Object} stop - Stop candidate
+ * @returns {boolean} True if this is an intermediate stoppage
+ */
+export function isIntermediateStoppage(stop) {
+  if (!stop) return false;
+  if (stop.isStand === true || stop.is_stand === true) return false;
+
+  if (
+    stop.is_intermediate_stoppage === true ||
+    stop.isIntermediateStoppage === true ||
+    stop.is_intermediate === true ||
+    stop.stop_type === 'intermediate' ||
+    stop.type === 'stop' ||
+    stop.type === 'intermediate'
+  ) {
+    return true;
+  }
+
+  // If not marked as a stand and has a valid stoppage name
+  const name = (stop.stoppage_name || stop.name || '').trim();
+  const isGeometryOnly = stop.is_intermediate_stoppage === false && !stop.stoppage_name;
+  return Boolean(name) && !isGeometryOnly;
+}
+
+/**
+ * Creates the reversed representation of a bidirectional route.
+ * Preserves the exact road-following geometry coordinates and intermediate stoppage
+ * coordinates, reversing their sequence for accurate opposite-direction travel.
+ *
+ * @param {Object} route - Base normalized route
+ * @returns {Object} Reversed route object
+ */
+export function createReverseRoute(route) {
+  if (!route) return null;
+
+  const rawPath = route.pathCoordinates || [];
+  const reversedPath = Array.isArray(rawPath) ? [...rawPath].reverse() : [];
+
+  const rawStops = route.stops || [];
+  const reversedStops = [...rawStops].reverse().map((stop, idx) => ({
+    ...stop,
+    order: idx + 1
+  }));
+
+  const originName = route.destinationStandName || route.destinationStop?.name || 'Destination';
+  const destName = route.originStandName || route.startStop?.name || 'Origin';
+  const cleanOrigin = cleanStopName(originName);
+  const cleanDest = cleanStopName(destName);
+  const reverseName = `${cleanOrigin} → ${cleanDest}`;
+
+  return {
+    ...route,
+    id: `${route.id}-reverse`,
+    baseRouteId: route.id,
+    isReversed: true,
+    direction: 'bidirectional',
+    is_bidirectional: true,
+    originStandId: route.destinationStandId,
+    destinationStandId: route.originStandId,
+    originStandName: cleanOrigin,
+    destinationStandName: cleanDest,
+    startStop: route.destinationStop ? { ...route.destinationStop, isStand: true, order: 1 } : null,
+    destinationStop: route.startStop ? { ...route.startStop, isStand: true, order: reversedStops.length } : null,
+    name: reverseName,
+    bengaliName: reverseName,
+    pathCoordinates: reversedPath,
+    stops: reversedStops
   };
 }

@@ -68,20 +68,35 @@ function createEndIcon() {
   });
 }
 
-function createWaypointIcon(index) {
+function createStoppageIcon(pointNumber) {
   return L.divIcon({
-    className: 'contribute-marker',
+    className: 'contribute-marker contribute-stoppage-marker',
     html: `
       <div style="
-        width: 28px; height: 28px; border-radius: 50%;
+        width: 30px; height: 30px; border-radius: 50%;
         background: #2563eb; border: 3px solid #fff;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
         display: flex; align-items: center; justify-content: center;
         color: #fff; font-weight: 800; font-size: 12px;
-      ">${index + 2}</div>
+      ">${pointNumber}</div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+function createGeometryIcon() {
+  return L.divIcon({
+    className: 'contribute-marker contribute-geometry-marker',
+    html: `
+      <div style="
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #475569; border: 2.5px solid #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+      "></div>
+    `,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   });
 }
 
@@ -283,34 +298,54 @@ export default function ContributeMap({
     }
 
     waypoints.forEach((wp, i) => {
+      const isStoppage = Boolean(wp.is_intermediate_stoppage);
       const pointNum = i + 2;
-      const hasName = Boolean(wp.name && wp.name.trim());
-      const cleanName = hasName ? wp.name.trim() : '';
-      const tooltipText = hasName ? `Point ${pointNum}: ${cleanName}` : `Point ${pointNum}`;
-      const popupHtml = `
-        <div style="font-family: inherit; font-size: 13px; line-height: 1.4; min-width: 150px;">
-          <div style="font-weight: 700; color: #1E293B;">
-            Intermediate Point ${i + 1} <span style="font-size: 11px; color: #64748B;">(Point ${pointNum})</span>
+      const cleanName = (wp.stoppage_name || wp.name || '').trim();
+
+      const icon = isStoppage ? createStoppageIcon(pointNum) : createGeometryIcon();
+      const zIndex = isStoppage ? 600 : 400;
+
+      const tooltipText = isStoppage
+        ? `🚏 Stoppage: ${cleanName || `Point ${pointNum}`}`
+        : `Point ${pointNum} (Geometry only)`;
+
+      const popupHtml = isStoppage
+        ? `
+          <div style="font-family: inherit; font-size: 13px; line-height: 1.4; min-width: 160px;">
+            <div style="font-weight: 700; color: #2563EB;">🚏 Intermediate Passenger Stoppage</div>
+            <div style="font-size: 11px; color: #64748B;">Point ${pointNum}</div>
+            ${cleanName ? `<div style="font-size: 13px; font-weight: 600; color: #0D5C3A; margin: 3px 0;">📍 ${escapeHtml(cleanName)}</div>` : ''}
+            <div style="color: #64748B; font-size: 11px; font-family: monospace; margin-top: 3px;">
+              ${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}
+            </div>
           </div>
-          ${hasName ? `<div style="font-size: 13px; font-weight: 600; color: #0D5C3A; margin: 3px 0;">📍 ${escapeHtml(cleanName)}</div>` : '<div style="font-size: 11px; color: #94A3B8; font-style: italic; margin: 2px 0;">Unnamed stopage</div>'}
-          <div style="color: #64748B; font-size: 11px; font-family: monospace; margin-top: 3px;">
-            ${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}
+        `
+        : `
+          <div style="font-family: inherit; font-size: 12px; line-height: 1.4; min-width: 150px;">
+            <div style="font-weight: 700; color: #475569;">📐 Route Geometry Point</div>
+            <div style="font-size: 11px; color: #64748B; margin: 2px 0;">Point ${pointNum} • Route path alignment (Not a passenger stoppage)</div>
+            <div style="color: #64748B; font-size: 11px; font-family: monospace; margin-top: 4px;">
+              ${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}
+            </div>
           </div>
-        </div>
-      `;
+        `;
 
       if (markers.waypoints[i]) {
         markers.waypoints[i].setLatLng([wp.lat, wp.lng]);
-        markers.waypoints[i].setIcon(createWaypointIcon(i));
+        markers.waypoints[i].setIcon(icon);
+        markers.waypoints[i].setZIndexOffset(zIndex);
         markers.waypoints[i].setTooltipContent(tooltipText);
         markers.waypoints[i].setPopupContent(popupHtml);
       } else {
         const m = L.marker([wp.lat, wp.lng], {
-          icon: createWaypointIcon(i),
+          icon,
           draggable: !readOnly,
-          zIndexOffset: 500,
+          zIndexOffset: zIndex,
         }).addTo(map);
-        m.bindTooltip(tooltipText, { direction: 'top', offset: [0, -14] });
+        m.bindTooltip(tooltipText, {
+          direction: 'top',
+          offset: [0, isStoppage ? -15 : -7]
+        });
         m.bindPopup(popupHtml);
         if (!readOnly) {
           m.on('dragend', (e) => {

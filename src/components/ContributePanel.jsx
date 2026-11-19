@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   MapPin, Navigation, Plus, Trash2, RotateCcw, ChevronRight,
   ChevronLeft, Check, Send, Loader, AlertTriangle, Info,
-  X, Eye, Crosshair
+  X, Eye, Crosshair, ArrowLeftRight, ArrowRight
 } from 'lucide-react';
 import { useTransit } from '../context/TransitContext';
 import { apiClient } from '../services/apiClient';
@@ -17,8 +17,8 @@ const AUTOCOMPLETE_DEBOUNCE_MS = 300;
 /**
  * ContributePanel — Multi-step community route contribution interface.
  *
- * Step 1: Route Information (names, description, fare)
- * Step 2: Interactive Map Coordinate Selection
+ * Step 1: Route Information (names, description, fare, direction)
+ * Step 2: Interactive Map Coordinate Selection (stoppages & geometry)
  * Step 3: Review & Confirm
  * Step 4: Submission Result
  */
@@ -31,6 +31,7 @@ export default function ContributePanel() {
   // ─── Step 1: Route info ───
   const [startName, setStartName] = useState('');
   const [endName, setEndName] = useState('');
+  const [direction, setDirection] = useState('bidirectional'); // 'bidirectional' | 'one_way'
   const [description, setDescription] = useState('');
   const [fare, setFare] = useState('');
   const [routeName, setRouteName] = useState('');
@@ -38,10 +39,11 @@ export default function ContributePanel() {
   // ─── Step 2: Map coordinates ───
   const [startPoint, setStartPoint] = useState(null); // { lat, lng }
   const [endPoint, setEndPoint] = useState(null);
-  const [waypoints, setWaypoints] = useState([]); // [{ lat, lng, name?: string }, ...]
+  const [waypoints, setWaypoints] = useState([]); // [{ lat, lng, is_intermediate_stoppage, stoppage_name }, ...]
   const [selectionMode, setSelectionMode] = useState(null); // 'start' | 'end' | 'waypoint' | null
   const [showGuide, setShowGuide] = useState(true);
   const [showMobileWaypointsDrawer, setShowMobileWaypointsDrawer] = useState(false);
+  const [attemptedStep2Next, setAttemptedStep2Next] = useState(false);
 
   // ─── Step 4: Submission ───
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,7 +161,16 @@ export default function ContributePanel() {
       if (!endName) setEndName(`${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
       setSelectionMode(null);
     } else if (selectionMode === 'waypoint') {
-      setWaypoints(prev => [...prev, { lat: latlng.lat, lng: latlng.lng, name: '' }]);
+      setWaypoints(prev => [
+        ...prev,
+        {
+          lat: latlng.lat,
+          lng: latlng.lng,
+          is_intermediate_stoppage: false,
+          stoppage_name: '',
+          name: '',
+        }
+      ]);
       setShowMobileWaypointsDrawer(true);
     }
   }, [selectionMode, startName, endName, endPoint]);
@@ -180,11 +191,30 @@ export default function ContributePanel() {
     }
   }, []);
 
-  const handleUpdateWaypointName = (index, name) => {
+  const handleToggleWaypointStoppage = (index, isChecked) => {
     setWaypoints(prev => {
       const updated = [...prev];
       if (updated[index]) {
-        updated[index] = { ...updated[index], name };
+        updated[index] = {
+          ...updated[index],
+          is_intermediate_stoppage: isChecked,
+          stoppage_name: isChecked ? (updated[index].stoppage_name || '') : '',
+          name: isChecked ? (updated[index].stoppage_name || '') : '',
+        };
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateWaypointStoppageName = (index, stoppageName) => {
+    setWaypoints(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = {
+          ...updated[index],
+          stoppage_name: stoppageName,
+          name: stoppageName,
+        };
       }
       return updated;
     });
@@ -213,11 +243,15 @@ export default function ContributePanel() {
     setEndPoint(null);
     setWaypoints([]);
     setSelectionMode('start');
+    setAttemptedStep2Next(false);
   };
 
-  // ─── Step navigation ───
-  const canProceedStep1 = startName.trim() && endName.trim();
-  const canProceedStep2 = startPoint && endPoint;
+  // ─── Step navigation & validation ───
+  const hasInvalidStoppages = waypoints.some(
+    (wp) => wp.is_intermediate_stoppage && (!wp.stoppage_name || !wp.stoppage_name.trim())
+  );
+  const canProceedStep1 = Boolean(startName.trim() && endName.trim());
+  const canProceedStep2 = Boolean(startPoint && endPoint && !hasInvalidStoppages);
 
   const goToStep = (step) => {
     setCurrentStep(step);
@@ -225,6 +259,16 @@ export default function ContributePanel() {
       setSelectionMode('start');
       setShowGuide(true);
     }
+  };
+
+  const handleProceedToStep3 = () => {
+    if (hasInvalidStoppages) {
+      setAttemptedStep2Next(true);
+      setShowMobileWaypointsDrawer(true);
+      return;
+    }
+    setCurrentStep(3);
+    setSelectionMode(null);
   };
 
   // ─── Build submission payload ───
@@ -238,17 +282,26 @@ export default function ContributePanel() {
         sequence: sequence++,
         latitude: startPoint.lat,
         longitude: startPoint.lng,
-        name: startName.trim() || null
+        is_intermediate_stoppage: false,
+        stoppage_name: null,
+        name: startName.trim() || null,
       });
     }
 
     // Intermediate waypoints
     waypoints.forEach((wp) => {
+      const isStoppage = Boolean(wp.is_intermediate_stoppage);
+      const cleanName = (isStoppage && wp.stoppage_name && wp.stoppage_name.trim())
+        ? wp.stoppage_name.trim()
+        : null;
+
       routePoints.push({
         sequence: sequence++,
         latitude: wp.lat,
         longitude: wp.lng,
-        name: (wp.name && wp.name.trim()) ? wp.name.trim() : null
+        is_intermediate_stoppage: isStoppage,
+        stoppage_name: cleanName,
+        name: cleanName,
       });
     });
 
@@ -258,7 +311,9 @@ export default function ContributePanel() {
         sequence: sequence++,
         latitude: endPoint.lat,
         longitude: endPoint.lng,
-        name: endName.trim() || null
+        is_intermediate_stoppage: false,
+        stoppage_name: null,
+        name: endName.trim() || null,
       });
     }
 
@@ -269,6 +324,8 @@ export default function ContributePanel() {
       end_name: endName.trim(),
       end_latitude: endPoint?.lat,
       end_longitude: endPoint?.lng,
+      direction: direction, // 'bidirectional' or 'one_way'
+      is_bidirectional: direction === 'bidirectional',
       route_points: routePoints,
       description: description.trim() || undefined,
       estimated_fare: fare.trim() || undefined,
@@ -310,6 +367,7 @@ export default function ContributePanel() {
     setCurrentStep(1);
     setStartName('');
     setEndName('');
+    setDirection('bidirectional');
     setDescription('');
     setFare('');
     setRouteName('');
@@ -319,6 +377,7 @@ export default function ContributePanel() {
     setSelectionMode(null);
     setShowGuide(true);
     setSubmissionResult(null);
+    setAttemptedStep2Next(false);
   };
 
   // ─── Autocomplete dropdown renderer ───
@@ -437,6 +496,43 @@ export default function ContributePanel() {
               )}
               {renderAutocomplete('end')}
             </div>
+          </div>
+        </div>
+
+        {/* Route Direction Selector */}
+        <div className="contribute-form-group contribute-direction-group">
+          <label className="contribute-label">
+            Route Direction <span className="contribute-required">*</span>
+          </label>
+          <div className="contribute-direction-selector" role="radiogroup" aria-label="Route Direction">
+            <button
+              type="button"
+              className={`contribute-direction-btn ${direction === 'bidirectional' ? 'active' : ''}`}
+              onClick={() => setDirection('bidirectional')}
+              role="radio"
+              aria-checked={direction === 'bidirectional'}
+            >
+              <ArrowLeftRight size={18} className="contribute-direction-icon" />
+              <div className="contribute-direction-text">
+                <span className="contribute-direction-title">Both ways (Bidirectional)</span>
+                <span className="contribute-direction-desc">Auto operates in both directions</span>
+              </div>
+              {direction === 'bidirectional' && <Check size={16} className="contribute-direction-check" />}
+            </button>
+            <button
+              type="button"
+              className={`contribute-direction-btn ${direction === 'one_way' ? 'active' : ''}`}
+              onClick={() => setDirection('one_way')}
+              role="radio"
+              aria-checked={direction === 'one_way'}
+            >
+              <ArrowRight size={18} className="contribute-direction-icon" />
+              <div className="contribute-direction-text">
+                <span className="contribute-direction-title">One-way</span>
+                <span className="contribute-direction-desc">Auto operates only from start to destination</span>
+              </div>
+              {direction === 'one_way' && <Check size={16} className="contribute-direction-check" />}
+            </button>
           </div>
         </div>
 
@@ -621,8 +717,8 @@ export default function ContributePanel() {
 
         <button
           className="contribute-btn contribute-btn-primary"
-          disabled={!canProceedStep2}
-          onClick={() => { setCurrentStep(3); setSelectionMode(null); }}
+          disabled={!startPoint || !endPoint}
+          onClick={handleProceedToStep3}
         >
           Preview <Eye size={16} />
         </button>
@@ -631,7 +727,7 @@ export default function ContributePanel() {
       <div className="contribute-map-area">
         {showGuide && renderGuide()}
 
-        {/* Intermediate Stoppages Panel (Stoppage Name Inputs) */}
+        {/* Intermediate Stoppages Panel (Stoppages & Geometry Points) */}
         {waypoints.length > 0 && (
           <div className={`contribute-waypoints-panel ${showMobileWaypointsDrawer ? 'mobile-open' : ''}`}>
             <div className="contribute-waypoints-panel-header">
@@ -640,7 +736,12 @@ export default function ContributePanel() {
                 <span>Intermediate Points ({waypoints.length})</span>
               </div>
               <div className="contribute-waypoints-panel-actions">
-                <span className="contribute-waypoints-optional-badge">Names Optional</span>
+                <span className="contribute-waypoints-count-pill stoppage">
+                  {waypoints.filter(wp => wp.is_intermediate_stoppage).length} Stops
+                </span>
+                <span className="contribute-waypoints-count-pill geometry">
+                  {waypoints.filter(wp => !wp.is_intermediate_stoppage).length} Geometry
+                </span>
                 <button
                   type="button"
                   className="contribute-waypoints-close-btn"
@@ -653,55 +754,107 @@ export default function ContributePanel() {
               </div>
             </div>
 
-            <div className="contribute-waypoints-scroll-area">
-              {waypoints.map((wp, i) => (
-                <div key={i} className="contribute-waypoint-card">
-                  <div className="contribute-waypoint-card-top">
-                    <div className="contribute-waypoint-label-col">
-                      <div className="contribute-waypoint-tag">
-                        <span className="contribute-waypoint-dot" />
-                        <strong>Intermediate Point {i + 1}</strong>
-                        <span className="contribute-waypoint-num-sub">(Point {i + 2})</span>
-                      </div>
-                      <div className="contribute-waypoint-coords-text">
-                        <span>Lat: {wp.lat.toFixed(5)}</span>
-                        <span>•</span>
-                        <span>Lng: {wp.lng.toFixed(5)}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="contribute-waypoint-delete-btn"
-                      onClick={() => handleRemoveWaypoint(i)}
-                      title={`Remove Intermediate Point ${i + 1}`}
-                      aria-label={`Remove Intermediate Point ${i + 1}`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+            {attemptedStep2Next && hasInvalidStoppages && (
+              <div className="contribute-waypoints-validation-alert">
+                <AlertTriangle size={15} />
+                <span>Please enter a stoppage name for all checked intermediate stoppages, or uncheck the box.</span>
+              </div>
+            )}
 
-                  <div className="contribute-waypoint-input-wrap">
-                    <input
-                      type="text"
-                      className="contribute-waypoint-input"
-                      placeholder="Enter stopage name (optional)"
-                      value={wp.name || ''}
-                      onChange={(e) => handleUpdateWaypointName(i, e.target.value)}
-                    />
-                    {wp.name && (
+            <div className="contribute-waypoints-scroll-area">
+              {waypoints.map((wp, i) => {
+                const isStoppage = Boolean(wp.is_intermediate_stoppage);
+                const isMissingName = isStoppage && (!wp.stoppage_name || !wp.stoppage_name.trim());
+                const showError = isMissingName && attemptedStep2Next;
+
+                return (
+                  <div
+                    key={i}
+                    className={`contribute-waypoint-card ${isStoppage ? 'is-stoppage' : 'is-geometry'} ${showError ? 'has-error' : ''}`}
+                  >
+                    <div className="contribute-waypoint-card-top">
+                      <div className="contribute-waypoint-label-col">
+                        <div className="contribute-waypoint-tag">
+                          <span
+                            className="contribute-waypoint-dot"
+                            style={{ background: isStoppage ? '#2563eb' : '#64748b' }}
+                          />
+                          <strong>Intermediate Point {i + 1}</strong>
+                          <span className="contribute-waypoint-num-sub">(Point {i + 2})</span>
+                          <span className={`contribute-waypoint-type-pill ${isStoppage ? 'stoppage' : 'geometry'}`}>
+                            {isStoppage ? 'Stoppage' : 'Geometry'}
+                          </span>
+                        </div>
+                        <div className="contribute-waypoint-coords-text">
+                          <span>Lat: {wp.lat.toFixed(5)}</span>
+                          <span>•</span>
+                          <span>Lng: {wp.lng.toFixed(5)}</span>
+                        </div>
+                      </div>
                       <button
                         type="button"
-                        className="contribute-waypoint-clear-btn"
-                        onClick={() => handleUpdateWaypointName(i, '')}
-                        title="Clear name"
-                        aria-label="Clear stoppage name"
+                        className="contribute-waypoint-delete-btn"
+                        onClick={() => handleRemoveWaypoint(i)}
+                        title={`Remove Intermediate Point ${i + 1}`}
+                        aria-label={`Remove Intermediate Point ${i + 1}`}
                       >
-                        <X size={12} />
+                        <Trash2 size={13} />
                       </button>
+                    </div>
+
+                    {/* Checkbox: Is this point an intermediate stoppage? */}
+                    <label className="contribute-waypoint-checkbox-label">
+                      <input
+                        type="checkbox"
+                        className="contribute-waypoint-checkbox"
+                        checked={isStoppage}
+                        onChange={(e) => handleToggleWaypointStoppage(i, e.target.checked)}
+                      />
+                      <span className="contribute-waypoint-checkbox-text">
+                        Is this point an intermediate stoppage?
+                      </span>
+                    </label>
+
+                    {/* If checked: Stoppage Name (required) */}
+                    {isStoppage ? (
+                      <div className="contribute-waypoint-stoppage-field">
+                        <label className="contribute-waypoint-field-label">
+                          Stoppage Name <span className="contribute-required">*</span>
+                        </label>
+                        <div className={`contribute-waypoint-input-wrap ${showError ? 'has-error' : ''}`}>
+                          <input
+                            type="text"
+                            className="contribute-waypoint-input"
+                            placeholder="Enter intermediate stoppage name"
+                            value={wp.stoppage_name || ''}
+                            onChange={(e) => handleUpdateWaypointStoppageName(i, e.target.value)}
+                          />
+                          {wp.stoppage_name && (
+                            <button
+                              type="button"
+                              className="contribute-waypoint-clear-btn"
+                              onClick={() => handleUpdateWaypointStoppageName(i, '')}
+                              title="Clear name"
+                              aria-label="Clear stoppage name"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                        {showError && (
+                          <span className="contribute-waypoint-error-text">
+                            Stoppage name is required when marked as an intermediate stoppage
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="contribute-waypoint-geometry-hint">
+                        Route geometry point only (no stoppage name needed)
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -733,9 +886,11 @@ export default function ContributePanel() {
             title="Toggle intermediate stoppage names"
           >
             <span className="contribute-points-dot" style={{ background: '#2563eb' }} />
-            <span>{waypoints.length} intermediate point{waypoints.length !== 1 ? 's' : ''}</span>
+            <span>
+              {waypoints.length} intermediate point{waypoints.length !== 1 ? 's' : ''} ({waypoints.filter(wp => wp.is_intermediate_stoppage).length} stop{waypoints.filter(wp => wp.is_intermediate_stoppage).length !== 1 ? 's' : ''}, {waypoints.filter(wp => !wp.is_intermediate_stoppage).length} geometry)
+            </span>
             <span className="contribute-points-pill-badge">
-              {showMobileWaypointsDrawer ? 'Hide Names ▲' : 'Name Stoppages ✎'}
+              {showMobileWaypointsDrawer ? 'Hide Details ▲' : 'Manage Points ✎'}
             </span>
           </button>
         )}
@@ -751,21 +906,29 @@ export default function ContributePanel() {
   //  STEP 3 — Review & Confirm
   // ════════════════════════════════
   const renderStep3 = () => {
+    const stoppageCount = waypoints.filter(wp => wp.is_intermediate_stoppage).length;
+    const geometryCount = waypoints.length - stoppageCount;
     const totalPoints = 2 + waypoints.length;
     const allPoints = [];
+
     if (startPoint) {
       allPoints.push({
         label: startName ? `Start: ${startName}` : 'Starting Point',
         type: 'start',
+        category: 'Origin Stop',
         ...startPoint
       });
     }
     waypoints.forEach((wp, i) => {
-      const stopName = (wp.name && wp.name.trim()) ? wp.name.trim() : 'Unnamed Point';
+      const isStoppage = Boolean(wp.is_intermediate_stoppage);
+      const cleanName = (wp.stoppage_name && wp.stoppage_name.trim()) || '';
       allPoints.push({
-        label: `Point ${i + 2}: ${stopName}`,
-        type: 'waypoint',
-        name: wp.name,
+        label: isStoppage
+          ? `Point ${i + 2}: ${cleanName || 'Unnamed Stoppage'}`
+          : `Point ${i + 2}: Geometry Point`,
+        type: isStoppage ? 'stoppage' : 'geometry',
+        category: isStoppage ? 'Passenger Stoppage' : 'Geometry Only',
+        name: cleanName,
         ...wp
       });
     });
@@ -773,6 +936,7 @@ export default function ContributePanel() {
       allPoints.push({
         label: endName ? `Destination: ${endName}` : 'Destination',
         type: 'end',
+        category: 'Destination Stop',
         ...endPoint
       });
     }
@@ -798,22 +962,45 @@ export default function ContributePanel() {
                   <span className="contribute-review-value">{startName}</span>
                 </div>
 
+                <div className="contribute-review-row">
+                  <span className="contribute-review-label">Direction</span>
+                  <span className="contribute-review-value">
+                    <span className="contribute-direction-badge">
+                      {direction === 'bidirectional' ? '↔ Both ways (Bidirectional)' : '→ One-way'}
+                    </span>
+                  </span>
+                </div>
+
                 {waypoints.length > 0 && (
                   <div className="contribute-review-row contribute-review-waypoints-row">
                     <span className="contribute-review-label">Intermediate Points</span>
                     <div className="contribute-review-waypoints-col">
-                      {waypoints.map((wp, i) => {
-                        const hasName = Boolean(wp.name && wp.name.trim());
-                        const name = hasName ? wp.name.trim() : 'Unnamed Point';
-                        return (
-                          <div key={i} className="contribute-review-waypoint-entry">
-                            <span className="contribute-review-waypoint-num">{i + 1}.</span>
-                            <span className={`contribute-review-waypoint-text ${!hasName ? 'unnamed' : ''}`}>
-                              {name}
-                            </span>
-                          </div>
-                        );
-                      })}
+                      {stoppageCount > 0 ? (
+                        <div className="contribute-review-stoppages-group">
+                          <span className="contribute-review-subheading">
+                            Passenger Stoppages ({stoppageCount}):
+                          </span>
+                          {waypoints
+                            .filter(wp => wp.is_intermediate_stoppage)
+                            .map((wp, i) => (
+                              <div key={i} className="contribute-review-waypoint-entry">
+                                <span className="contribute-review-waypoint-num">🚏</span>
+                                <span className="contribute-review-waypoint-text">
+                                  {wp.stoppage_name?.trim()}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <span className="contribute-review-waypoint-text unnamed">
+                          No intermediate passenger stoppages
+                        </span>
+                      )}
+                      {geometryCount > 0 && (
+                        <span className="contribute-review-geometry-note">
+                          + {geometryCount} route geometry point{geometryCount !== 1 ? 's' : ''} (path alignment)
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -842,7 +1029,9 @@ export default function ContributePanel() {
                 )}
                 <div className="contribute-review-row">
                   <span className="contribute-review-label">Total Points</span>
-                  <span className="contribute-review-value contribute-review-badge">{totalPoints} coordinates</span>
+                  <span className="contribute-review-value contribute-review-badge">
+                    {totalPoints} coordinates ({stoppageCount + 2} stops, {geometryCount} geometry)
+                  </span>
                 </div>
               </div>
 
@@ -856,11 +1045,23 @@ export default function ContributePanel() {
                       <span
                         className="contribute-point-type-dot"
                         style={{
-                          background: pt.type === 'start' ? '#16a34a' : pt.type === 'end' ? '#dc2626' : '#2563eb'
+                          background:
+                            pt.type === 'start'
+                              ? '#16a34a'
+                              : pt.type === 'end'
+                                ? '#dc2626'
+                                : pt.type === 'stoppage'
+                                  ? '#2563eb'
+                                  : '#64748b'
                         }}
                       />
                       <div className="contribute-point-details">
-                        <span className="contribute-point-label">{pt.label}</span>
+                        <div className="contribute-point-details-top">
+                          <span className="contribute-point-label">{pt.label}</span>
+                          <span className={`contribute-point-type-pill ${pt.type}`}>
+                            {pt.category}
+                          </span>
+                        </div>
                         <span className="contribute-point-coords">{pt.lat.toFixed(6)}, {pt.lng.toFixed(6)}</span>
                       </div>
                     </div>

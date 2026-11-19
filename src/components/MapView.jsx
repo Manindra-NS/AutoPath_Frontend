@@ -20,6 +20,7 @@ import {
   Info
 } from 'lucide-react';
 import OfflineFallbackMap from './OfflineFallbackMap';
+import { cleanStopName, isRegularAutoStand } from '../services/routeNormalizer';
 
 // Read Google Maps API key from environment (set in .env, never hardcoded in source)
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -228,63 +229,87 @@ export default function MapView() {
       });
     }
 
-    // 2. Draw Intermediate Stops in their specified order along the route
+    // 2. Draw Intermediate Stoppages along the selected route ONLY
+    // Rules:
+    // - Displayed ONLY when a route is actively selected (Scenario B & C).
+    // - When no route is selected or route view is closed, this layer remains completely empty (Scenario A & D).
+    // - Display as small, subtle circular dots (approx 5-7px diameter) in teal/dark cyan with a thin white border.
+    // - Display small unobtrusive text labels.
+    // - Skip terminal stands (they have regular auto stand markers).
+    // - Skip geometry-only points (points without names).
     const stopsToDraw = selectedRouteStops?.length > 0 ? selectedRouteStops : selectedRoute?.stops;
-    if (layers.corridors && Array.isArray(stopsToDraw)) {
+    if (layers.corridors && selectedRoute && Array.isArray(stopsToDraw)) {
       stopsToDraw.forEach((stop, index) => {
-        // Skip terminal stands since they have prominent stand markers
-        if (stop.isStand || !stop.coordinates) return;
+        // Skip points without coordinates
+        if (!stop || !stop.coordinates) return;
+
+        // Skip terminal stands since they are prominently rendered as regular auto stand markers
+        if (stop.isStand || stop.is_stand) return;
+        if (
+          (selectedRoute.originStandId && stop.id === selectedRoute.originStandId) ||
+          (selectedRoute.destinationStandId && stop.id === selectedRoute.destinationStandId)
+        ) {
+          return;
+        }
+        if (
+          (selectedRoute.startStop?.id && stop.id === selectedRoute.startStop.id) ||
+          (selectedRoute.destinationStop?.id && stop.id === selectedRoute.destinationStop.id)
+        ) {
+          return;
+        }
+
+        // Skip geometry-only points (points with is_intermediate_stoppage === false and no stoppage name)
+        if (stop.is_intermediate_stoppage === false && !stop.name && !stop.stoppage_name) return;
+        if (stop.is_geometry === true) return;
+
+        const rawStopName = (stop.stoppage_name || stop.name || '').trim();
+        if (!rawStopName) return;
 
         const isHovered = hoveredStop === stop.id;
         const stopOrder = stop.order || (index + 1);
 
+        const rawDisplayName = language === 'bn'
+          ? (stop.bengaliName || stop.stoppage_name || stop.name)
+          : (stop.stoppage_name || stop.name);
+        const displayName = cleanStopName(rawDisplayName);
+
+        // Intermediate marker: 6px circular dot in teal/dark cyan with thin white border
+        // Unobtrusive small text label below the dot
         const stopIcon = L.divIcon({
-          className: 'custom-stop-marker-wrap',
+          className: 'custom-intermediate-marker-wrap',
           html: `
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-              <div class="custom-stop-marker" style="${
-                isHovered
-                  ? 'transform: scale(1.4); border-color: #0D5C3A; background: #bef264;'
-                  : ''
-              }">
-                <span style="font-size: 8px; font-weight: 800; color: #0D5C3A; display: flex; align-items: center; justify-content: center; height: 100%;">
-                  ${stopOrder}
-                </span>
-              </div>
-              <div style="
-                position: absolute;
-                top: 14px;
-                background: rgba(255, 255, 255, 0.96);
-                border: 1px solid #CBD5E1;
-                border-radius: 4px;
-                padding: 1px 5px;
-                font-size: 9px;
-                font-weight: 700;
-                color: #334155;
-                white-space: nowrap;
-                pointer-events: none;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-              ">
-                ${language === 'bn' ? (stop.bengaliName || stop.name) : stop.name.split('/')[0].trim()}
-              </div>
+            <div class="intermediate-stop-container ${isHovered ? 'is-hovered' : ''}">
+              <div class="intermediate-stop-dot"></div>
+              <div class="intermediate-stop-label">${displayName}</div>
             </div>
           `,
-          iconSize: [14, 14],
-          iconAnchor: [7, 7]
+          iconSize: [6, 6],
+          iconAnchor: [3, 3]
         });
 
-        L.marker(stop.coordinates, { icon: stopIcon })
-          .bindTooltip(`<strong>Stop #${stopOrder}: ${stop.name}</strong><br/>${stop.distance || ''}`, {
+        const marker = L.marker(stop.coordinates, {
+          icon: stopIcon,
+          zIndexOffset: isHovered ? 800 : 400
+        });
+
+        marker.bindTooltip(
+          `<strong>${displayName}</strong><br/><span style="font-size: 11px; color: #0D9488; font-weight: 700;">Intermediate Stoppage #${stopOrder}</span>${stop.distance ? `<br/><span style="font-size: 10px; color: #64748B;">Distance: ${stop.distance}</span>` : ''}`,
+          {
             direction: 'top',
-            offset: [0, -8]
-          })
-          .addTo(stopGroup);
+            offset: [0, -6]
+          }
+        );
+
+        marker.addTo(stopGroup);
       });
     }
 
     // 3. Draw Auto Stands (Yellow-Green circular markers)
-    if (layers.stands && stands.length > 0) {
-      stands.forEach((stand) => {
+    // ONLY display regular auto stands (actual auto stand or route starting/ending locations).
+    // NEVER display intermediate stoppages as regular auto stand markers.
+    const regularStands = stands.filter((stand) => isRegularAutoStand(stand));
+    if (layers.stands && regularStands.length > 0) {
+      regularStands.forEach((stand) => {
         if (!stand.coordinates) return;
         const isSelected = isStandPanelOpen && stand.id === selectedStand?.id;
 
@@ -387,6 +412,55 @@ export default function MapView() {
         >
           <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} />
           Fetching route road geometry from backend…
+        </div>
+      )}
+
+      {/* Active route view indicator with 1-click dismiss to return to default map view */}
+      {selectedRoute && !isLoadingRouteDetail && !isGeometryMissing && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(255, 255, 255, 0.96)',
+            border: '1.5px solid #0D5C3A',
+            borderRadius: '24px',
+            padding: '6px 14px 6px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#0D5C3A',
+            zIndex: 1100,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+            backdropFilter: 'blur(4px)'
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D9488', display: 'inline-block' }} />
+          <span>Viewing: {selectedRoute.name}</span>
+          <button
+            onClick={() => setSelectedRouteId(null)}
+            style={{
+              background: '#F1F5F9',
+              border: 'none',
+              borderRadius: '50%',
+              width: 20,
+              height: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#64748B',
+              padding: 0
+            }}
+            title="Clear route view & return to default map"
+            aria-label="Clear route view"
+          >
+            <X size={12} />
+          </button>
         </div>
       )}
 

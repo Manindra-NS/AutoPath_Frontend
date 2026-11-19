@@ -94,7 +94,7 @@ export default function InteractiveMapPanel() {
               <MapPin size={11} /> {t.coordinates || 'COORDINATES'}
             </span>
             <span className="stand-meta-value" title={selectedStand.coordsDescription}>
-              {selectedStand.coordsDescription || 
+              {selectedStand.coordsDescription ||
                 (selectedStand.coordinates ? `${selectedStand.coordinates[0].toFixed(4)}°N, ${selectedStand.coordinates[1].toFixed(4)}°E` : 'Kolkata, WB')}
             </span>
           </div>
@@ -197,8 +197,8 @@ export default function InteractiveMapPanel() {
                           {routeTitle}
                         </div>
                         <div className="hub-route-bengali">
-                          {language === 'bn' 
-                            ? (route.bengaliSubtitle || route.bengaliName || route.name) 
+                          {language === 'bn'
+                            ? (route.bengaliSubtitle || route.bengaliName || route.name)
                             : (route.bengaliSubtitle || route.subtitle || 'Kolkata Shared Auto Corridor')}
                         </div>
                       </div>
@@ -253,8 +253,8 @@ export default function InteractiveMapPanel() {
                     </span>
                     <button
                       className={`btn-select-view-route ${isSelected ? 'btn-route-selected' : ''}`}
-                      onClick={() => setSelectedRouteId(route.id)}
-                      title={isSelected ? 'Route is currently drawn on map' : 'Click to draw and inspect route on map'}
+                      onClick={() => setSelectedRouteId(isSelected ? null : route.id)}
+                      title={isSelected ? 'Route is currently drawn on map. Click to close/clear route view.' : 'Click to draw and inspect route on map'}
                     >
                       {isSelected ? (
                         <>
@@ -284,7 +284,30 @@ export default function InteractiveMapPanel() {
               <span className="timeline-title">
                 {t.stoppageProgression || 'Stoppage Progression'} ({stopsToRender ? stopsToRender.length : 0} STOPS)
               </span>
-              <span className="live-corridor-link">{t.liveCorridor || 'Live Corridor'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="live-corridor-link">{t.liveCorridor || 'Live Corridor'}</span>
+                <button
+                  onClick={() => setSelectedRouteId(null)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#475569',
+                    cursor: 'pointer'
+                  }}
+                  title="Close Route View & Return to Default Map"
+                  aria-label="Close Route View"
+                >
+                  <X size={12} />
+                  <span>Close View</span>
+                </button>
+              </div>
             </div>
 
             <div className="timeline-list">
@@ -303,9 +326,8 @@ export default function InteractiveMapPanel() {
                       onMouseLeave={() => setHoveredStop(null)}
                     >
                       <span
-                        className={`timeline-dot ${isOrigin ? 'origin' : ''} ${
-                          isTerminus ? 'terminus' : ''
-                        } ${isHighlighted ? 'highlighted' : ''}`}
+                        className={`timeline-dot ${isOrigin ? 'origin' : ''} ${isTerminus ? 'terminus' : ''
+                          } ${isHighlighted ? 'highlighted' : ''}`}
                       />
                       <div className="timeline-content">
                         <div className="timeline-stop-name">

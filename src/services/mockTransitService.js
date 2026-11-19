@@ -1,5 +1,6 @@
 import { autoStands } from '../data/standsData';
 import { routesData } from '../data/routesData';
+import { createReverseRoute } from './routeNormalizer';
 
 /**
  * Helper to simulate realistic network delay during frontend development.
@@ -177,21 +178,36 @@ export const mockTransitService = {
   /**
    * Finds auto routes between two locations.
    * Returns matching routes with their startStop, destinationStop, stops, and road geometry.
+   * Supports both forward and reverse directions for bidirectional corridors.
    */
   async findRoutes(from = '', to = '', options = {}) {
     await delay(220);
     const fromStr = from.trim().toLowerCase();
     const toStr = to.trim().toLowerCase();
 
-    let matching = routesData;
+    // Include base routes
+    const allCandidateRoutes = [...routesData];
+
+    // Add reverse routes for bidirectional corridors
+    routesData.forEach((r) => {
+      const isBidi = r.direction === 'bidirectional' || r.is_bidirectional !== false || r.name?.includes('⇄');
+      if (isBidi) {
+        allCandidateRoutes.push(createReverseRoute(r));
+      }
+    });
+
+    let matching = allCandidateRoutes;
 
     if (fromStr || toStr) {
-      matching = routesData.filter((r) => {
-        const originName = r.name.toLowerCase();
-        const bengaliName = r.bengaliName;
-        const matchesOrigin = !fromStr || originName.includes(fromStr) || bengaliName.includes(fromStr);
-        const matchesDest = !toStr || originName.includes(toStr) || bengaliName.includes(toStr) ||
-          r.stops?.some(s => s.name.toLowerCase().includes(toStr) || s.bengaliName.includes(toStr));
+      matching = allCandidateRoutes.filter((r) => {
+        const originName = (r.originStandName || r.name || '').toLowerCase();
+        const destName = (r.destinationStandName || r.name || '').toLowerCase();
+        const bengaliName = r.bengaliName || '';
+
+        const matchesOrigin = !fromStr || originName.includes(fromStr) || bengaliName.includes(fromStr) ||
+          r.stops?.some(s => s.name?.toLowerCase().includes(fromStr) || s.bengaliName?.includes(fromStr));
+        const matchesDest = !toStr || destName.includes(toStr) || bengaliName.includes(toStr) ||
+          r.stops?.some(s => s.name?.toLowerCase().includes(toStr) || s.bengaliName?.includes(toStr));
         return matchesOrigin && matchesDest;
       });
     }
@@ -206,16 +222,32 @@ export const mockTransitService = {
 
   /**
    * Retrieves all routes departing from a specific auto stand.
+   * Supports both forward departing routes and reverse departing routes
+   * for bidirectional corridors.
    */
   async getRoutesByStand(standId) {
     await delay(160);
-    const routes = routesData.filter(
-      (r) => r.originStandId.toLowerCase() === String(standId).toLowerCase()
+    const targetId = String(standId).toLowerCase();
+
+    // 1. Direct routes originating from this stand
+    const directRoutes = routesData.filter(
+      (r) => r.originStandId && r.originStandId.toLowerCase() === targetId
     );
+
+    // 2. Reverse routes for bidirectional corridors terminating at this stand
+    const reverseRoutes = routesData
+      .filter((r) => {
+        const isBidi = r.direction === 'bidirectional' || r.is_bidirectional !== false || r.name?.includes('⇄');
+        return isBidi && r.destinationStandId && r.destinationStandId.toLowerCase() === targetId &&
+          (!r.originStandId || r.originStandId.toLowerCase() !== targetId);
+      })
+      .map(createReverseRoute);
+
+    const allRoutes = [...directRoutes, ...reverseRoutes];
     return {
       success: true,
-      count: routes.length,
-      data: routes
+      count: allRoutes.length,
+      data: allRoutes
     };
   },
 
@@ -229,9 +261,21 @@ export const mockTransitService = {
    */
   async getRouteDetail(routeId) {
     await delay(140);
-    const route = routesData.find(
-      (r) => r.id.toLowerCase() === String(routeId).toLowerCase()
+    const idStr = String(routeId).toLowerCase();
+
+    let route = routesData.find(
+      (r) => r.id.toLowerCase() === idStr
     );
+
+    // Handle reverse route request
+    if (!route && idStr.endsWith('-reverse')) {
+      const baseId = idStr.replace(/-reverse$/, '');
+      const baseRoute = routesData.find((r) => r.id.toLowerCase() === baseId);
+      if (baseRoute) {
+        route = createReverseRoute(baseRoute);
+      }
+    }
+
     if (!route) {
       return {
         success: false,

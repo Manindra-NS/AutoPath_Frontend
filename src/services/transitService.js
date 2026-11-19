@@ -1,7 +1,7 @@
 import { USE_MOCK_DATA, ENDPOINTS } from './apiConfig';
 import { apiClient } from './apiClient';
 import { mockTransitService } from './mockTransitService';
-import { normalizeRouteData, normalizeStop } from './routeNormalizer';
+import { normalizeRouteData, normalizeStop, normalizeSingleCoordinate, isRegularAutoStand } from './routeNormalizer';
 
 /**
  * Unified Transit Service Layer
@@ -21,8 +21,11 @@ export const transitService = {
   },
 
   /**
-   * Retrieves all auto stands and their map coordinates.
+   * Retrieves all regular auto stands and their terminal coordinates.
    * Backend endpoint: GET /api/stands
+   *
+   * Filters out intermediate route stoppages so that only true auto stands
+   * appear as independent markers in the default map view.
    */
   async getStands() {
     if (USE_MOCK_DATA) {
@@ -32,10 +35,24 @@ export const transitService = {
     try {
       const response = await apiClient.get(ENDPOINTS.stands);
       const rawList = response.data || response;
+      const list = Array.isArray(rawList) ? rawList : [];
+
+      const normalizedStands = list
+        .map((stand) => {
+          const coords = normalizeSingleCoordinate(
+            stand.coordinates || stand.coords || [stand.latitude || stand.lat, stand.longitude || stand.lng]
+          );
+          return {
+            ...stand,
+            coordinates: coords
+          };
+        })
+        .filter((stand) => stand.coordinates && isRegularAutoStand(stand));
+
       return {
         success: true,
-        data: Array.isArray(rawList) ? rawList : [],
-        count: Array.isArray(rawList) ? rawList.length : 0
+        data: normalizedStands,
+        count: normalizedStands.length
       };
     } catch (err) {
       console.error('[transitService] getStands failed against live backend:', err);

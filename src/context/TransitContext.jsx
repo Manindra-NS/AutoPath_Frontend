@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { transitService } from '../services/transitService';
 import { translations } from '../data/translations';
+import { isRegularAutoStand } from '../services/routeNormalizer';
 
 const TransitContext = createContext();
 
@@ -76,14 +77,16 @@ export function TransitProvider({ children }) {
 
   const t = translations[language] || translations.en;
 
-  // 1. Load initial stands from transitService
+  // 1. Load initial regular auto stands from transitService
   const loadStands = useCallback(async () => {
     setIsLoadingStands(true);
     setApiError(null);
     try {
       const res = await transitService.getStands();
       if (res.success && res.data) {
-        setStands(res.data);
+        // Guarantee only regular auto stands appear on default map
+        const regularStands = Array.isArray(res.data) ? res.data.filter(s => isRegularAutoStand(s)) : [];
+        setStands(regularStands);
       } else {
         setApiError(res.error || 'Failed to load auto stands from backend database.');
       }
@@ -271,6 +274,12 @@ export function TransitProvider({ children }) {
 
   // Route Selection Handler
   const handleSelectRoute = (routeId) => {
+    if (!routeId) {
+      setSelectedRouteIdState(null);
+      setSelectedRouteDetail(null);
+      setSelectedRouteStops([]);
+      return;
+    }
     setSelectedRouteIdState(routeId);
     setIsStandPanelOpen(true);
     const route = searchResults.find(r => r.id === routeId) || standRoutes.find(r => r.id === routeId);
@@ -351,6 +360,16 @@ export function TransitProvider({ children }) {
         routeError,
         setRouteError,
         retryLoad: loadStands,
+        loadStands,
+        refreshTransitData: async () => {
+          await loadStands();
+          if (selectedStandIdState) {
+            await loadStandRoutes(selectedStandIdState);
+          }
+          if (selectedRouteIdState) {
+            await loadRouteDetail(selectedRouteIdState);
+          }
+        },
         isMockMode: transitService.isMockMode(),
         systemState,
         setSystemState,
